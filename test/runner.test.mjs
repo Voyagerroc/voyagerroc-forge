@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
@@ -33,6 +33,26 @@ async function fixture(t, options = {}) {
 }
 const edit = { path: 'hello.mjs', before: '"helo"', after: '"hello"' };
 async function finish(runner, run) { await runner.jobs.get(run.id).promise; return runner.store.getRun(run.id); }
+
+async function commitPaths(source, paths) {
+  // Build the tree through the index so case-insensitive hosts can represent it.
+  for (const path of paths) {
+    const blob = (await git(['hash-object','-w','--stdin'], { cwd: source, input: `Content of ${path}\n` })).toString().trim();
+    await git(['-c','core.ignorecase=false','update-index','--add','--cacheinfo',`100644,${blob},${path}`], { cwd: source });
+  }
+  await git(['-c','user.name=Test','-c','user.email=test@localhost','commit','--quiet','-m','Path fixture'], { cwd: source });
+  return (await git(['rev-parse','HEAD'], { cwd: source })).toString().trim();
+}
+
+async function sourceState(source) {
+  return {
+    head: (await git(['rev-parse','HEAD'], { cwd: source })).toString(),
+    diff: (await git(['diff','--binary','HEAD'], { cwd: source })).toString(),
+    index: await readFile(join(source, '.git', 'index')),
+    dirty: await readFile(join(source, 'hello.mjs')),
+    untracked: await readFile(join(source, 'untracked.txt'))
+  };
+}
 
 test('runner pins committed source, produces hashed patch and leaves source untouched', async t => {
   const { runner, store, source, task, sha } = await fixture(t);
@@ -102,6 +122,38 @@ test('symbolic-link entries in the Git tree are rejected without following them'
   const result = await finish(runner, runner.start(task.id, { version: task.version, edits: [edit] }));
   assert.equal(result.status, 'failed'); assert.match(result.summary, /Symlinks/);
 });
+for (const paths of [
+  ['Foo/a.txt', 'foo/b.txt'],
+  ['shared/Foo/a.txt', 'shared/foo/b.txt'],
+  ['Foo', 'foo/a.txt'],
+  ['Foo/a.txt', 'foo'],
+  ['Foo/a.txt', 'Foo/A.txt']
+]) test(`snapshot rejects case-colliding paths before writing: ${paths.join(', ')}`, async t => {
+  const { runner, store, task, root, source } = await fixture(t);
+  await commitPaths(source, paths);
+  const before = await sourceState(source);
+  const snapshotRoot = join(root, 'snapshot'); await mkdir(snapshotRoot);
+  await assert.rejects(runner.snapshot(store.getProject(task.project_id), snapshotRoot, new AbortController().signal),
+    /Case-colliding source paths are not supported/);
+  assert.deepEqual(await readdir(snapshotRoot), []);
+  assert.deepEqual(await sourceState(source), before);
+});
+
+test('snapshot preserves distinct mixed-case paths and shared directories', async t => {
+  const { runner, store, task, root, source } = await fixture(t);
+  const paths = ['Foo/a.txt', 'Foo/B.TXT', 'FOOd/c.txt', 'other/Foo/a.txt'];
+  const sha = await commitPaths(source, paths);
+  const before = await sourceState(source);
+  const snapshotRoot = join(root, 'snapshot'); await mkdir(snapshotRoot);
+  const snapshot = await runner.snapshot(store.getProject(task.project_id), snapshotRoot, new AbortController().signal);
+  assert.equal(snapshot.sha, sha);
+  for (const path of paths) assert.equal(await readFile(join(snapshot.workspace, path), 'utf8'), `Content of ${path}\n`);
+  const tracked = (await git(['ls-files','-z'], { cwd: snapshot.workspace })).toString().split('\0').filter(Boolean);
+  assert.deepEqual(tracked.sort(), [...paths, 'hello.mjs', 'package.json'].sort());
+  assert.match(await readFile(join(snapshot.workspace, 'hello.mjs'), 'utf8'), /"helo"/);
+  assert.deepEqual(await sourceState(source), before);
+});
+
 test('unsupported adapters, missing local config and stale plan versions fail closed', async t => {
   const { runner, task } = await fixture(t);
   assert.throws(() => runner.start(task.id, { version: task.version-1, edits: [edit] }), /Approve/);

@@ -80,10 +80,18 @@ export class Runner {
       return { path, size, blob: match[3] };
     });
     if (entries.reduce((n, e) => n + e.size, 0) > 10 * 1024 * 1024) throw new Error('Source snapshot exceeds 10 MiB');
-    const paths = new Set();
+    const paths = new Map();
     for (const entry of entries) {
-      if (paths.has(entry.path.toLowerCase())) throw new Error('Case-colliding source paths are not supported');
-      paths.add(entry.path.toLowerCase());
+      const parts = entry.path.split('/'); let path = '';
+      for (let i = 0; i < parts.length; i++) {
+        path += (i ? '/' : '') + parts[i];
+        const key = path.toLowerCase(); const directory = i < parts.length - 1;
+        const previous = paths.get(key);
+        // Only identically spelled directories may share a path prefix.
+        if (previous && (previous.path !== path || !previous.directory || !directory))
+          throw new Error('Case-colliding source paths are not supported');
+        paths.set(key, { path, directory });
+      }
     }
     const workspace = join(root, 'workspace'); await mkdir(workspace);
     for (const entry of entries) {
