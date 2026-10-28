@@ -1,0 +1,11 @@
+#executions { margin: 32px 0; }
+#runs { display: grid; gap: 14px; }
+.run-card { overflow-wrap: anywhere; }
+.run-card button { margin: 14px 10px 0 0; }
+.run-card h3 { font-size: 15px; }
+#result-dialog { width: min(900px, calc(100% - 24px)); }
+#run-detail { min-width: 0; overflow-wrap: anywhere; }
+#run-detail pre { padding: 16px; background: #0a111c; border: 1px solid #2b3b55; border-radius: 7px; max-width: 100%; overflow: auto; font: 12px/1.7 Consolas, monospace; }
+#run-detail li { font-size: 12px; white-space: pre-wrap; }
+#edits { font: 12px/1.7 Consolas, monospace; }
+.project-card strong { display: block; margin-top: 12px; }

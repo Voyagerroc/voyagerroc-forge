@@ -1,0 +1,15 @@
+node_modules/
+data/
+.env*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.zip
+.DS_Store
+qa/
+graphify-out/

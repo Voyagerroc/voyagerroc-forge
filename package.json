@@ -1,0 +1,19 @@
+{
+  "name": "voyagerroc-forge",
+  "version": "0.2.0",
+  "private": true,
+  "description": "GitHub-connected framework starter for reviewable agent workflows: pinned source, scoped edits, patches and check evidence.",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/Voyagerroc/voyagerroc-forge.git" },
+  "bugs": { "url": "https://github.com/Voyagerroc/voyagerroc-forge/issues" },
+  "homepage": "https://github.com/Voyagerroc/voyagerroc-forge#readme",
+  "type": "module",
+  "engines": { "node": ">=24.19" },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "dev": "node --watch src/server.mjs",
+    "demo:runner": "node scripts/demo-runner.mjs",
+    "test": "node --test",
+    "check": "node --check src/server.mjs && node --check public/app.js && node scripts/check-doc-links.mjs && node --test"
+  }
+}

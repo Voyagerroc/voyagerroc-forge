@@ -1,0 +1,30 @@
+name: Feature or adapter proposal
+description: Propose a bounded improvement or compatibility experiment
+title: "[Proposal]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Concrete problem
+      description: Who encounters it and what happens today?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Smallest useful change
+      description: Include capability boundaries and exclusions.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation and acceptance criteria
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Alternatives and integration evidence
+      description: External adapters need primary docs and a pinned version.
