@@ -132,6 +132,15 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const server = createApp({ store, github, runner, webhookSecret: process.env.GITHUB_WEBHOOK_SECRET });
   const port = Number(process.env.PORT || 4317);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid PORT');
+  // A port already held by another instance is the one startup failure a
+  // first run is likely to hit; name it and point at PORT instead of
+  // letting the raw EADDRINUSE stack trace through (#1).
+  server.on('error', error => {
+    if (error.code !== 'EADDRINUSE') throw error;
+    const alternative = port === 65535 ? 4317 : port + 1;
+    console.error(`Voyagerroc Forge: port ${port} is already in use. Stop the other instance or start with another port: PORT=${alternative} npm start`);
+    process.exit(1);
+  });
   server.listen(port, '127.0.0.1', () => console.log(`Voyagerroc Forge: http://127.0.0.1:${port}`));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(async () => { await runner.close(); store.close(); process.exit(0); }));
 }

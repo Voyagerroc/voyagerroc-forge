@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Starting Forge while its port is already held exits with a message naming
+  the port and a `PORT=` hint instead of a raw EADDRINUSE stack trace (#1).
+
 ## 0.2.0 — First public prototype
 
 ### Working foundations
