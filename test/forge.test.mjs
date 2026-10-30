@@ -38,6 +38,29 @@ async function fixture(t) {
   return { store, origin, call, webhook };
 }
 
+test('an occupied port exits with a PORT hint and leaves the listener alone', async t => {
+  const { spawn } = await import('node:child_process');
+  const { createServer } = await import('node:net');
+  const blocker = createServer();
+  blocker.listen(0, '127.0.0.1'); await once(blocker, 'listening');
+  const port = blocker.address().port;
+  t.after(() => new Promise(resolve => blocker.close(resolve)));
+  const dir = mkdtempSync(join(tmpdir(), 'forge-port-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const child = spawn(process.execPath, ['src/server.mjs'], {
+    cwd: process.cwd(),
+    env: { ...process.env, PORT: String(port), FORGE_DB: join(dir, 'forge.sqlite') },
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  let stderr = '';
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', chunk => { stderr += chunk; });
+  const [code] = await once(child, 'exit');
+  assert.equal(code, 1, stderr);
+  assert.match(stderr, new RegExp(`port ${port} is already in use`));
+  assert.match(stderr, /PORT=/);
+  assert.equal(blocker.listening, true, 'the existing listener is left untouched');
+});
 test('repository parsing permits GitHub repositories and rejects URL injection', () => {
   for (const value of ['example/project', 'https://github.com/example/project', 'https://github.com/example/project.git']) assert.equal(parseRepository(value), 'example/project');
   for (const value of ['https://evil.test/a/b', 'https://github.com@evil.test/a/b', 'https://github.com/a/b?q=1', 'a/..', 'a/b/c', 'http://127.0.0.1/private']) assert.throws(() => parseRepository(value));
