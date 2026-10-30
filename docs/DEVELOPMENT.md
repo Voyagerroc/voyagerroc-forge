@@ -6,7 +6,7 @@
 npm run check
 ```
 
-Runs documentation-link validation, syntax checks and Node's built-in tests. The suite uses local fixture repositories and generated test-only keys; it does not need GitHub/model/cloud credentials or network access. Git and Node.js 24.19+ are required. The local Windows run passed 28 tests; hosted Linux/Windows results have not been obtained.
+Runs documentation-link validation, syntax checks and Node's built-in tests. The suite uses local fixture repositories and generated test-only keys; it does not need GitHub/model/cloud credentials or network access. Git and Node.js 24.19+ are required. The local Windows run passed 63 tests; hosted Linux/Windows results have not been obtained.
 
 ## CI activation
 

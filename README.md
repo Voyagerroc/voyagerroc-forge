@@ -6,7 +6,7 @@
 
 An experimental, GitHub-connected framework starter for reviewable agent workflows.
 
-[![Local checks](https://img.shields.io/badge/local_checks-28_passed-43853d.svg)](docs/DEVELOPMENT.md)
+[![Local checks](https://img.shields.io/badge/local_checks-63_passed-43853d.svg)](docs/DEVELOPMENT.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-24.19%2B-43853d.svg)](https://nodejs.org/)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](#project-status)
