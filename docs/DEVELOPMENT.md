@@ -45,6 +45,8 @@ It creates a labeled local task, advances it to approval, runs a scoped edit, ch
 
 Tests cover persistence, optimistic state transitions, webhook signature/replay/ordering, App signing/token caching, pinned Git snapshots, source preservation, actual diff hashes, failed static checks, nonexecution of repository code, path/UTF-8 restrictions, cancellation, descendants, deadlines, restart recovery and API boundaries.
 
+Snapshot case-collision regressions create committed paths through the Git index, allowing the same fixtures on case-sensitive and case-insensitive filesystems. They cover nested directory prefixes, file/directory overlaps in either order, existing full-file collisions, and valid mixed-case names. Rejected snapshots must leave the output root empty; both rejected and accepted snapshots must preserve the source HEAD, index, tracked changes and untracked fixture contents.
+
 Static syntax/JSON/whitespace checks are not project test execution. UI acceptance does not prove production isolation or external Scion compatibility.
 
 ## Reporting results
