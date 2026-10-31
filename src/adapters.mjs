@@ -1,7 +1,7 @@
 export const adapters = [
   { id: 'github', name: 'GitHub', status: 'metadata-ready', detail: 'Live metadata and signed events. Scoped edits with static checks are available through the local runner.' },
-  { id: 'open-scion', name: 'open_scion / Graft', status: 'planned', detail: 'Source-control adapter contract only; RPC compatibility is not yet validated.' },
-  { id: 'gcp-scion', name: 'Scion agent orchestration', status: 'planned', detail: 'Runner adapter contract only; no remote agents are launched.' }
+  { id: 'open-scion', name: 'open_scion / git-ai', status: 'planned', detail: 'Independent open-source (MIT) source-control adapter contract only; RPC compatibility is not yet validated. Independent of Anthropic.' },
+  { id: 'gcp-scion', name: 'Google Scion agent orchestration', status: 'planned', detail: 'Independent open-source (Apache-2.0) runner adapter contract only; no remote agents are launched. Not an officially supported Google product.' }
 ];
 
 export function buildPlan(task, project) {
