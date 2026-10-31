@@ -1,4 +1,8 @@
 #executions { margin: 32px 0; }
+.workflow-controls { display: flex; gap: 10px; align-items: center; }
+.workflow-controls select { width: auto; padding: 8px 12px; font-size: 12px; background: #0d1420; border: 1px solid #2b374b; border-radius: 6px; color: #dce4ef; }
+.runner-limits-banner { background: #0e1625; border: 1px solid #23344d; border-radius: 6px; padding: 8px 12px; font-size: 11px; color: #9bb2d6; margin: 8px 0; line-height: 1.5; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
 #runs { display: grid; gap: 14px; }
 .run-card { overflow-wrap: anywhere; }
 .run-card button { margin: 14px 10px 0 0; }

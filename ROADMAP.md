@@ -15,9 +15,9 @@ A contribution map, not a delivery-date promise.
 ## Small contributions welcome
 
 - [x] Actionable occupied-port error handling
-- [ ] Repository filters for tasks and history
-- [ ] Runner limits visible before starting
-- [ ] Keyboard focus restoration in dialogs
+- [x] Repository filters for tasks and history
+- [x] Runner limits visible before starting
+- [x] Keyboard focus restoration in dialogs
 - [x] Case-colliding source directory regression fixtures
 
 Browse [good first issues](https://github.com/Voyagerroc/voyagerroc-forge/contribute). Comment before a large patch to avoid duplicate work; small fixes need no reservation.

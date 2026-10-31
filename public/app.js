@@ -1,5 +1,7 @@
 let state;
 let runTask;
+let selectedProjectId = 'all';
+let lastActiveElement = null;
 const $ = selector => document.querySelector(selector);
 const node = (tag, text, className) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; };
 const labels = { queued: 'Queued', planned: 'Planned', in_review: 'In review', approved: 'Approved' };
@@ -26,13 +28,29 @@ function render() {
   }));
   if (!state.projects.length) $('#projects').append(node('p', 'No repositories connected yet. Add your first GitHub repository above.', 'empty'));
   $('#project').replaceChildren(...state.projects.map(p => { const option = node('option', p.full_name); option.value = p.id; return option; }));
+  const filterSelect = $('#filter-project');
+  if (filterSelect) {
+    const currentVal = selectedProjectId;
+    filterSelect.replaceChildren(
+      node('option', 'All repositories'),
+      ...state.projects.map(p => { const option = node('option', p.full_name); option.value = p.id; return option; })
+    );
+    filterSelect.options[0].value = 'all';
+    if (['all', ...state.projects.map(p => p.id)].includes(currentVal)) {
+      filterSelect.value = currentVal;
+    } else {
+      selectedProjectId = 'all';
+      filterSelect.value = 'all';
+    }
+  }
+  const filteredTasks = selectedProjectId === 'all' ? state.tasks : state.tasks.filter(t => t.project_id === selectedProjectId);
   $('#board').replaceChildren(...Object.entries(labels).map(([status, label]) => {
-    const column = node('div', undefined, 'column'); const tasks = state.tasks.filter(t => t.status === status);
+    const column = node('div', undefined, 'column'); const tasks = filteredTasks.filter(t => t.status === status);
     column.append(node('h3', `${label}  ${tasks.length}`));
     tasks.forEach(task => {
       const card = node('article', undefined, 'task-card');
       card.append(node('small', state.projects.find(p => p.id === task.project_id)?.full_name), node('h4', task.title), node('p', task.intent), node('span', task.adapter, 'badge'));
-      if (task.plan) { const view = node('button', 'View plan', 'text-button'); view.onclick = () => showPlan(task); card.append(view); }
+      if (task.plan) { const view = node('button', 'View plan', 'text-button'); view.onclick = () => showPlan(task, view); card.append(view); }
       const action = { queued: ['plan','Generate plan'], planned: ['review','Request review'], in_review: ['approve','Approve plan'] }[status];
       if (action) {
         const button = node('button', action[1]);
@@ -46,7 +64,17 @@ function render() {
         if (state.runner && task.adapter === 'github') {
           const start = node('button', 'Run scoped edits');
           start.disabled = Boolean(state.runner.active);
-          start.onclick = () => { runTask = task; $('#run-task-title').textContent = task.title; $('#edits').value = ''; $('#run-dialog').showModal(); };
+          start.onclick = () => {
+            runTask = task;
+            $('#run-task-title').textContent = task.title;
+            $('#edits').value = '';
+            const banner = $('#runner-limits');
+            if (banner && state.runner) {
+              const timeoutSec = Math.round(state.runner.timeoutMs / 1000);
+              banner.textContent = `Limits: max 20 file edits, max 256 KiB total text, ${timeoutSec}s timeout. Up to 200 tracked files (10 MiB) in snapshot.`;
+            }
+            openDialog($('#run-dialog'), start);
+          };
           card.append(start);
         }
       }
@@ -73,7 +101,7 @@ function render() {
     const row = node('article', undefined, 'project-card run-card');
     row.append(node('span', result.status, 'badge'), node('h3', state.tasks.find(t => t.id === result.task_id)?.title ?? result.task_id),
       node('p', result.summary || 'Preparing a pinned source snapshot…'), node('small', result.base_sha ? `Base ${result.base_sha}` : 'Base revision pending'));
-    const view = node('button', 'View evidence', 'text-button'); view.onclick = () => showResult(result.id); row.append(view);
+    const view = node('button', 'View evidence', 'text-button'); view.onclick = () => showResult(result.id, view); row.append(view);
     if (['preparing','running'].includes(result.status)) {
       const cancel = node('button', 'Cancel run', 'text-button'); cancel.onclick = () => run(cancel, async () => { await api(`/api/runs/${result.id}/cancel`, {}); await refresh(); message('Run cancelled.'); }); row.append(cancel);
     }
@@ -81,7 +109,18 @@ function render() {
   }));
   if (!state.runs?.length) $('#runs').append(node('p', 'No executions yet. Approve a GitHub plan, then run scoped edits.', 'empty'));
 }
-async function showResult(id) {
+function openDialog(dialog, trigger) {
+  lastActiveElement = trigger || document.activeElement;
+  dialog.showModal();
+}
+function closeDialog(dialog) {
+  dialog.close();
+  if (lastActiveElement && typeof lastActiveElement.focus === 'function') {
+    lastActiveElement.focus();
+    lastActiveElement = null;
+  }
+}
+async function showResult(id, trigger) {
   try {
     const result = await api(`/api/runs/${id}`);
     const checks = node('ul');
@@ -89,14 +128,14 @@ async function showResult(id) {
     const patch = node('pre', result.patch || 'No patch produced.');
     $('#run-detail').replaceChildren(node('p', result.summary || result.status), node('p', `Base: ${result.base_sha || 'unresolved'}`, 'muted'),
       node('p', `Patch SHA-256: ${result.patch_sha256 || 'not available'}`, 'muted'), checks, node('h3', 'Patch'), patch);
-    $('#result-dialog').showModal();
+    openDialog($('#result-dialog'), trigger);
   } catch (error) { message(error.message); }
 }
-function showPlan(task) {
+function showPlan(task, trigger) {
   const detail = $('#plan-detail'); const list = node('ol');
   task.plan.steps.forEach(step => list.append(node('li', `${step.stage}: ${step.action}`)));
   detail.replaceChildren(node('h3', task.title), node('p', 'DRY RUN · No agent execution', 'notice'), list, node('p', task.plan.gates.join(' · '), 'muted'));
-  $('#plan-dialog').showModal();
+  openDialog($('#plan-dialog'), trigger);
 }
 async function run(button, work) {
   button.disabled = true; message('Working…');
@@ -106,25 +145,36 @@ $('#connect-form').onsubmit = event => {
   event.preventDefault(); const button = event.submitter;
   run(button, async () => { await api('/api/projects', { repository: $('#repository').value }); await refresh(); $('#connect-form').reset(); message('GitHub repository connected.'); });
 };
-$('#new-task').onclick = () => $('#task-dialog').showModal();
-$('#close-task').onclick = () => $('#task-dialog').close();
-$('#close-plan').onclick = () => $('#plan-dialog').close();
-$('#close-run').onclick = () => $('#run-dialog').close();
-$('#close-result').onclick = () => $('#result-dialog').close();
+const filterElem = $('#filter-project');
+if (filterElem) {
+  filterElem.onchange = () => {
+    selectedProjectId = filterElem.value;
+    render();
+  };
+}
+$('#new-task').onclick = event => openDialog($('#task-dialog'), event.currentTarget);
+$('#close-task').onclick = () => closeDialog($('#task-dialog'));
+$('#close-plan').onclick = () => closeDialog($('#plan-dialog'));
+$('#close-run').onclick = () => closeDialog($('#run-dialog'));
+$('#close-result').onclick = () => closeDialog($('#result-dialog'));
+$('#task-dialog').oncancel = () => closeDialog($('#task-dialog'));
+$('#plan-dialog').oncancel = () => closeDialog($('#plan-dialog'));
+$('#run-dialog').oncancel = () => closeDialog($('#run-dialog'));
+$('#result-dialog').oncancel = () => closeDialog($('#result-dialog'));
 $('#refresh-runs').onclick = () => run($('#refresh-runs'), refresh);
 $('#run-form').onsubmit = event => {
   event.preventDefault();
   run(event.submitter, async () => {
     const edits = JSON.parse($('#edits').value);
     await api(`/api/tasks/${runTask.id}/runs`, { version: runTask.version, edits });
-    $('#run-dialog').close(); await refresh(); message('Runner started. Results update automatically.');
+    closeDialog($('#run-dialog')); await refresh(); message('Runner started. Results update automatically.');
   });
 };
 $('#task-form').onsubmit = event => {
   event.preventDefault();
   run(event.submitter, async () => {
     await api('/api/tasks', Object.fromEntries(new FormData(event.target)));
-    $('#task-dialog').close(); event.target.reset(); await refresh(); message('Workflow task created.');
+    closeDialog($('#task-dialog')); event.target.reset(); await refresh(); message('Workflow task created.');
   });
 };
 refresh().catch(error => message(error.message));
