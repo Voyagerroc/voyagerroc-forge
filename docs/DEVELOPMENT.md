@@ -22,6 +22,43 @@ npm run demo:runner
 
 The UI is at http://127.0.0.1:4317. `npm run dev` uses Node's watch mode for the ordinary server. Only one server may bind to a given port. Do not commit `data/`, `qa/`, secrets or private source.
 
+## Failed edit and corrected follow-up
+
+With Node.js 24.19+ and Git, start `npm run demo:runner` from the repository root and open http://127.0.0.1:4317. The bundled `local/runner-demo` source needs no credentials or network access. On macOS, if Node's permission check reports `ERR_ACCESS_DENIED` for `/var`, restart with `TMPDIR=/private/tmp npm run demo:runner` to use a canonical temporary path.
+
+In another terminal, record the original fixture before running edits:
+
+```sh
+git -C data/demo-repository rev-parse HEAD
+git -C data/demo-repository status --porcelain
+git -C data/demo-repository diff HEAD
+```
+
+The last two commands produce no output for a fresh fixture. Create a task for **local/runner-demo** with the **GitHub** adapter, generate its plan, request review, then approve it. Choose **Run scoped edits**, paste this deliberately absent `before` value, and submit **Run edits & static checks**:
+
+```json
+[{"path":"hello.mjs","before":"\"not-present\"","after":"\"hello\""}]
+```
+
+Under **Runner results**, the run becomes **failed**. Open its **View evidence**:
+
+- Summary: `Before text must match exactly once: hello.mjs`.
+- **Base** shows the pinned fixture commit; compare it with the HEAD recorded above.
+- **Patch SHA-256** is `not available`, and **Patch** says `No patch produced.`
+- There are no named check records for this failure: validation stops before a patch or later static checks are produced.
+
+Close the evidence dialog. On the same approved task, choose **Run scoped edits** again and submit the corrected JSON:
+
+```json
+[{"path":"hello.mjs","before":"\"helo\"","after":"\"hello\""}]
+```
+
+This creates a **separate run**. Its **View evidence** shows **passed** results for `edit:hello.mjs`, `conflicts:hello.mjs`, `syntax:hello.mjs` and `diff-whitespace`, a patch SHA-256, and a diff changing `"helo"` to `"hello"`. The summary is `Scoped edits and static checks passed. Project tests were not run.` Reopen the older failed row: its failure message and lack of patch remain unchanged. A follow-up does not overwrite historical evidence.
+
+Repeat the three Git commands above. HEAD must match the original value, and status/diff must still be empty. The original `data/demo-repository/hello.mjs` still contains `export const greeting = "helo";`; only the disposable copy was edited.
+
+The runner's syntax/JSON/conflict/whitespace checks are static validation, not execution of the source repository's project tests or an AI agent. Stop the server with Ctrl+C. Run `npm run check` to validate Forge itself, including documentation links (use `TMPDIR=/private/tmp npm run check` for the macOS path condition above).
+
 ## Optional browser acceptance
 
 Install Playwright temporarily without changing the manifest/lockfile:

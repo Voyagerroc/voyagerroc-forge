@@ -51,6 +51,8 @@ Open **http://127.0.0.1:4317**:
 
 The original demo repository stays unchanged, so the exercise is repeatable. Stop the server with Ctrl+C. Use `PORT` if 4317 is already occupied. `npm start` starts the ordinary workspace without enabling the local demo source.
 
+To inspect a rejected edit and retry without replacing its evidence, follow the [failed edit walkthrough](docs/DEVELOPMENT.md#failed-edit-and-corrected-follow-up).
+
 ![Actual diff and named static checks produced by the scoped-edit runner](docs/assets/forge-evidence.png)
 
 ## What you can build on
