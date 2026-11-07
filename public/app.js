@@ -120,6 +120,19 @@ function closeDialog(dialog) {
     lastActiveElement = null;
   }
 }
+function downloadPatch(result) {
+  const url = URL.createObjectURL(new Blob([result.patch], { type: 'text/plain;charset=utf-8' }));
+  const link = node('a');
+  const id = String(result.id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || 'run';
+  link.href = url;
+  link.download = `forge-${id}.patch`;
+  document.body.append(link);
+  try { link.click(); } finally {
+    link.remove();
+    // Let the browser start reading the Blob before releasing its URL.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+}
 async function showResult(id, trigger) {
   try {
     const result = await api(`/api/runs/${id}`);
@@ -128,6 +141,11 @@ async function showResult(id, trigger) {
     const patch = node('pre', result.patch || 'No patch produced.');
     $('#run-detail').replaceChildren(node('p', result.summary || result.status), node('p', `Base: ${result.base_sha || 'unresolved'}`, 'muted'),
       node('p', `Patch SHA-256: ${result.patch_sha256 || 'not available'}`, 'muted'), checks, node('h3', 'Patch'), patch);
+    if (result.patch && !['preparing', 'running'].includes(result.status)) {
+      const download = node('button', 'Download patch'); download.type = 'button';
+      download.onclick = () => downloadPatch(result);
+      patch.before(download);
+    }
     openDialog($('#result-dialog'), trigger);
   } catch (error) { message(error.message); }
 }
