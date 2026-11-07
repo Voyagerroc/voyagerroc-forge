@@ -137,10 +137,38 @@ function showPlan(task, trigger) {
   detail.replaceChildren(node('h3', task.title), node('p', 'DRY RUN · No agent execution', 'notice'), list, node('p', task.plan.gates.join(' · '), 'muted'));
   openDialog($('#plan-dialog'), trigger);
 }
+
+const activeOperations = new WeakSet();
+
 async function run(button, work) {
-  button.disabled = true; message('Working…');
-  try { await work(); } catch (error) { message(error.message); } finally { button.disabled = false; }
+  if (!button || typeof work !== 'function') return;
+  const busyElement = button.form || button;
+  if (activeOperations.has(busyElement)) return;
+
+  const wasDisabled = button.disabled;
+  const previousAriaBusy = busyElement.getAttribute('aria-busy');
+
+  activeOperations.add(busyElement);
+  button.disabled = true;
+  busyElement.setAttribute('aria-busy', 'true');
+
+  message('Working…');
+
+  try {
+    await work();
+  } catch (error) {
+    message(error instanceof Error ? error.message : 'Request failed');
+  } finally {
+    if (previousAriaBusy === null) {
+      busyElement.removeAttribute('aria-busy');
+    } else {
+      busyElement.setAttribute('aria-busy', previousAriaBusy);
+    }
+    button.disabled = wasDisabled;
+    activeOperations.delete(busyElement);
+  }
 }
+
 $('#connect-form').onsubmit = event => {
   event.preventDefault(); const button = event.submitter;
   run(button, async () => { await api('/api/projects', { repository: $('#repository').value }); await refresh(); $('#connect-form').reset(); message('GitHub repository connected.'); });
