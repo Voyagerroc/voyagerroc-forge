@@ -4,10 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { command, git } from './runner-process.mjs';
-import { editPath, validateEdits } from './edit-worker.mjs';
+import { EDIT_LIMITS, editPath, validateEdits } from './edit-worker.mjs';
 import { parseRepository } from './github.mjs';
 
 const worker = fileURLToPath(new URL('./edit-worker.mjs', import.meta.url));
+const SNAPSHOT_LIMITS = Object.freeze({ minFiles: 1, maxFiles: 200, maxFileBytes: 1024 * 1024, maxBytes: 10 * 1024 * 1024 });
 const errorWithStatus = (message, status = 400) => Object.assign(new Error(message), { status });
 const terminal = status => ['passed','failed','cancelled','timed_out','interrupted'].includes(status);
 const diagnostic = text => text.replace(/(?:gh[pousr]_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|Bearer\s+\S+)/g, '[REDACTED]').slice(0, 3000);
@@ -21,7 +22,7 @@ export class Runner {
   capabilities() {
     return { mode: 'scoped-edits', checks: ['exact-replacement','conflict-markers','json-parse','javascript-syntax','diff-whitespace'],
       projectTests: false, aiAgent: false, publication: false, maxConcurrent: this.maxConcurrent,
-      timeoutMs: this.timeoutMs, active: this.jobs.size };
+      timeoutMs: this.timeoutMs, active: this.jobs.size, limits: { snapshot: SNAPSHOT_LIMITS, edits: EDIT_LIMITS } };
   }
   start(taskId, { version, edits }) {
     if (!Number.isSafeInteger(version) || version < 0) throw errorWithStatus('Task version is required');
@@ -71,15 +72,18 @@ export class Runner {
     }
     if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Source revision is not a valid SHA-1 commit');
     const tree = (await git(['ls-tree','-r','-z','-l',sha], { cwd: source, signal })).toString('utf8').split('\0').filter(Boolean);
-    if (!tree.length || tree.length > 200) throw new Error('Source snapshot must contain 1–200 tracked files');
+    if (tree.length < SNAPSHOT_LIMITS.minFiles || tree.length > SNAPSHOT_LIMITS.maxFiles)
+      throw new Error(`Source snapshot must contain ${SNAPSHOT_LIMITS.minFiles}–${SNAPSHOT_LIMITS.maxFiles} tracked files`);
     const entries = tree.map(line => {
       const match = line.match(/^(\d+) (\w+) ([a-f0-9]{40})\s+(\d+|-)\t([\s\S]+)$/);
       if (!match || !['100644','100755'].includes(match[1]) || match[2] !== 'blob') throw new Error('Symlinks and submodules are not supported');
       const path = editPath(match[5]); const size = Number(match[4]);
-      if (!Number.isSafeInteger(size) || size > 1024 * 1024) throw new Error('Source file exceeds 1 MiB');
+      if (!Number.isSafeInteger(size) || size > SNAPSHOT_LIMITS.maxFileBytes)
+        throw new Error(`Source file exceeds ${SNAPSHOT_LIMITS.maxFileBytes / (1024 * 1024)} MiB`);
       return { path, size, blob: match[3] };
     });
-    if (entries.reduce((n, e) => n + e.size, 0) > 10 * 1024 * 1024) throw new Error('Source snapshot exceeds 10 MiB');
+    if (entries.reduce((n, e) => n + e.size, 0) > SNAPSHOT_LIMITS.maxBytes)
+      throw new Error(`Source snapshot exceeds ${SNAPSHOT_LIMITS.maxBytes / (1024 * 1024)} MiB`);
     const paths = new Map();
     for (const entry of entries) {
       const parts = entry.path.split('/'); let path = '';
@@ -98,7 +102,7 @@ export class Runner {
       signal.throwIfAborted();
       const target = resolve(workspace, entry.path);
       await mkdir(resolve(target, '..'), { recursive: true });
-      await writeFile(target, await git(['cat-file','blob',entry.blob], { cwd: source, signal, maxBytes: 1100000 }));
+      await writeFile(target, await git(['cat-file','blob',entry.blob], { cwd: source, signal, maxBytes: SNAPSHOT_LIMITS.maxFileBytes }));
     }
     await git(['init','--quiet'], { cwd: workspace, signal });
     await git(['add','--force','--all'], { cwd: workspace, signal });

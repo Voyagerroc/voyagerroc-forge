@@ -102,6 +102,64 @@ test('unsafe paths, duplicate files and empty changes are rejected before creati
   assert.throws(() => validateEdits([edit, { ...edit, path: 'HELLO.mjs' }]), /Duplicate/);
   assert.throws(() => validateEdits([{ ...edit, after: edit.before }]));
 });
+test('advertised edit limits accept the boundary and reject excess before creating a run', async t => {
+  const { runner, store, task } = await fixture(t);
+  const { minCount, maxCount, maxTextBytes } = runner.capabilities().limits.edits;
+  const edits = Array.from({ length: maxCount }, (_, i) => ({ path: `new-${i}.txt`, before: null, after: 'text' }));
+  assert.equal(validateEdits(edits).length, maxCount);
+  assert.equal(validateEdits(edits.slice(0, minCount)).length, minCount);
+  // Both sides and all files count, in UTF-8 bytes rather than JS string length.
+  const textEdits = [{ path: 'a.txt', before: 'é', after: '😀'.repeat(Math.floor((maxTextBytes - 4) / 4)) },
+    { path: 'b.txt', before: null, after: 'x'.repeat(2 + (maxTextBytes - 4) % 4) }];
+  assert.equal(textEdits.reduce((size, e) => size + Buffer.byteLength(e.before ?? '') + Buffer.byteLength(e.after), 0), maxTextBytes);
+  assert.equal(validateEdits(textEdits).length, 2);
+  for (const invalid of [edits.slice(0, minCount - 1), [...edits, { ...edit, path: 'extra.txt' }],
+    [textEdits[0], { ...textEdits[1], after: textEdits[1].after + 'x' }]]) {
+    assert.throws(() => runner.start(task.id, { version: task.version, edits: invalid }), { status: 400 });
+    assert.equal(runner.jobs.size, 0);
+    assert.equal(store.snapshot().runs.length, 0);
+  }
+  const result = await finish(runner, runner.start(task.id, { version: task.version, edits }));
+  assert.equal(result.status, 'passed', result.summary);
+  assert.equal(result.checks.filter(c => c.name.startsWith('edit:')).length, maxCount);
+});
+
+test('advertised snapshot limits match accepted boundaries and reject oversized trees before writes', async t => {
+  const { runner, store, task, root, source } = await fixture(t);
+  const { minFiles, maxFiles, maxFileBytes, maxBytes } = runner.capabilities().limits.snapshot;
+  async function snapshotFiles(sizes, name, error) {
+    const blobs = new Map();
+    for (const size of new Set(sizes)) {
+      blobs.set(size, (await git(['hash-object','-w','--stdin'], { cwd: source, input: Buffer.alloc(size) })).toString().trim());
+    }
+    await git(['read-tree','--empty'], { cwd: source });
+    await git(['update-index','--index-info'], { cwd: source,
+      input: sizes.map((size, i) => `100644 ${blobs.get(size)}\tboundary-${i}.txt\n`).join('') });
+    await git(['-c','user.name=Test','-c','user.email=test@localhost','commit','--quiet','--allow-empty','-m','Snapshot limit fixture'], { cwd: source });
+    const before = await sourceState(source);
+    const output = join(root, name); await mkdir(output);
+    const pending = runner.snapshot(store.getProject(task.project_id), output, new AbortController().signal);
+    if (error) {
+      await assert.rejects(pending, error);
+      assert.deepEqual(await readdir(output), []);
+    } else {
+      const { workspace } = await pending;
+      const files = await readdir(workspace);
+      assert.equal(files.filter(p => p !== '.git').length, sizes.length);
+      for (const [i, size] of sizes.entries()) assert.equal((await readFile(join(workspace, `boundary-${i}.txt`))).length, size);
+    }
+    assert.deepEqual(await sourceState(source), before);
+  }
+  const fullSnapshot = Array.from({ length: maxFiles }, (_, i) => Math.max(0, Math.min(maxFileBytes, maxBytes - i * maxFileBytes)));
+  assert.equal(fullSnapshot.reduce((sum, size) => sum + size, 0), maxBytes);
+  await snapshotFiles(fullSnapshot, 'at-all-maxima');
+  await snapshotFiles(Array(minFiles).fill(0), 'minimum-files');
+  await snapshotFiles(Array(minFiles - 1).fill(0), 'too-few-files', /tracked files/);
+  await snapshotFiles(Array(maxFiles + 1).fill(0), 'too-many-files', /tracked files/);
+  await snapshotFiles([maxFileBytes + 1], 'file-too-large', /Source file exceeds/);
+  const oversized = fullSnapshot.filter(Boolean); oversized.push(1);
+  await snapshotFiles(oversized, 'snapshot-too-large', /Source snapshot exceeds/);
+});
 test('concurrency guard, cancellation and retry release the runner slot', async t => {
   const { runner, task } = await fixture(t);
   const run = runner.start(task.id, { version: task.version, edits: [edit] });
@@ -205,6 +263,13 @@ test('runner API starts a real job, exposes evidence and rejects cross-origin st
   const server = createApp({ store, runner }); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => server.close(resolve)));
   const origin = `http://127.0.0.1:${server.address().port}`;
+  const capabilities = (await (await fetch(`${origin}/api/state`)).json()).runner;
+  assert.deepEqual(capabilities.limits, runner.capabilities().limits);
+  assert.deepEqual(capabilities.limits, {
+    snapshot: { minFiles: 1, maxFiles: 200, maxFileBytes: 1048576, maxBytes: 10485760 },
+    edits: { minCount: 1, maxCount: 20, maxTextBytes: 262144 }
+  });
+  assert.equal(capabilities.projectTests, false);
   const start = async originHeader => fetch(`${origin}/api/tasks/${task.id}/runs`, { method: 'POST',
     headers: { Origin: originHeader, 'Content-Type': 'application/json', 'X-Forge-Client': 'local-ui' },
     body: JSON.stringify({ version: task.version, edits: [edit] }) });
