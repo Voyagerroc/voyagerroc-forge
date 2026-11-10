@@ -27,23 +27,27 @@ function render() {
     return card;
   }));
   if (!state.projects.length) $('#projects').append(node('p', 'No repositories connected yet. Add your first GitHub repository above.', 'empty'));
-  $('#project').replaceChildren(...state.projects.map(p => { const option = node('option', p.full_name); option.value = p.id; return option; }));
+  const creationProject = $('#project'); const creationProjectId = creationProject.value;
+  creationProject.replaceChildren(...state.projects.map(p => { const option = node('option', p.full_name); option.value = p.id; return option; }));
+  if (state.projects.some(p => p.id === creationProjectId)) creationProject.value = creationProjectId;
   const filterSelect = $('#filter-project');
   if (filterSelect) {
     const currentVal = selectedProjectId;
-    filterSelect.replaceChildren(
-      node('option', 'All repositories'),
-      ...state.projects.map(p => { const option = node('option', p.full_name); option.value = p.id; return option; })
-    );
-    filterSelect.options[0].value = 'all';
+    const choices = [{ id: 'all', full_name: 'All repositories' }, ...state.projects];
+    // Keep an open native select usable while background refreshes render.
+    if (filterSelect.options.length !== choices.length || choices.some((p, i) => filterSelect.options[i].value !== p.id || filterSelect.options[i].textContent !== p.full_name)) {
+      filterSelect.replaceChildren(...choices.map(p => { const option = node('option', p.full_name); option.value = p.id; return option; }));
+    }
     if (['all', ...state.projects.map(p => p.id)].includes(currentVal)) {
-      filterSelect.value = currentVal;
+      if (filterSelect.value !== currentVal) filterSelect.value = currentVal;
     } else {
       selectedProjectId = 'all';
       filterSelect.value = 'all';
     }
   }
   const filteredTasks = selectedProjectId === 'all' ? state.tasks : state.tasks.filter(t => t.project_id === selectedProjectId);
+  const taskIds = new Set(filteredTasks.map(task => task.id));
+  const filteredRuns = (state.runs ?? []).filter(result => selectedProjectId === 'all' || taskIds.has(result.task_id));
   $('#board').replaceChildren(...Object.entries(labels).map(([status, label]) => {
     const column = node('div', undefined, 'column'); const tasks = filteredTasks.filter(t => t.status === status);
     column.append(node('h3', `${label}  ${tasks.length}`));
@@ -97,7 +101,7 @@ function render() {
     const row = node('div', undefined, 'event'); row.append(node('span', event.kind.replaceAll('.', ' / ')), node('small', new Date(event.created_at).toLocaleString())); return row;
   }));
   if (!state.events.length) $('#events').append(node('p', 'Connect a repository to start your activity trail.', 'empty'));
-  $('#runs').replaceChildren(...(state.runs ?? []).map(result => {
+  $('#runs').replaceChildren(...filteredRuns.map(result => {
     const row = node('article', undefined, 'project-card run-card');
     row.append(node('span', result.status, 'badge'), node('h3', state.tasks.find(t => t.id === result.task_id)?.title ?? result.task_id),
       node('p', result.summary || 'Preparing a pinned source snapshot…'), node('small', result.base_sha ? `Base ${result.base_sha}` : 'Base revision pending'));
@@ -107,7 +111,7 @@ function render() {
     }
     return row;
   }));
-  if (!state.runs?.length) $('#runs').append(node('p', 'No executions yet. Approve a GitHub plan, then run scoped edits.', 'empty'));
+  if (!filteredRuns.length) $('#runs').append(node('p', selectedProjectId === 'all' ? 'No executions yet. Approve a GitHub plan, then run scoped edits.' : 'No runs for this repository.', 'empty'));
 }
 function openDialog(dialog, trigger) {
   lastActiveElement = trigger || document.activeElement;
