@@ -1,7 +1,8 @@
 let state;
 let runTask;
 let selectedProjectId = 'all';
-let lastActiveElement = null;
+const focusReturns = new WeakMap();
+const dialogTriggers = new WeakMap();
 const $ = selector => document.querySelector(selector);
 const node = (tag, text, className) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; };
 const labels = { queued: 'Queued', planned: 'Planned', in_review: 'In review', approved: 'Approved' };
@@ -15,6 +16,7 @@ async function api(path, data) {
 }
 async function refresh() { state = await api('/api/state'); render(); }
 function render() {
+  const focusReturn = focusReturns.get(document.activeElement);
   $('#project-count').textContent = state.projects.length;
   $('#task-count').textContent = state.tasks.length;
   $('#review-count').textContent = state.tasks.filter(t => t.status === 'in_review').length;
@@ -55,7 +57,11 @@ function render() {
     tasks.forEach(task => {
       const card = node('article', undefined, 'task-card');
       card.append(node('small', state.projects.find(p => p.id === task.project_id)?.full_name), node('h4', task.title), node('p', task.intent), node('span', task.adapter, 'badge'));
-      if (task.plan) { const view = node('button', 'View plan', 'text-button'); view.onclick = () => showPlan(task, view); card.append(view); }
+      if (task.plan) {
+        const view = node('button', 'View plan', 'text-button');
+        rememberFocus(view, `task-${task.id}-plan`, ['workflow-heading']);
+        view.onclick = () => showPlan(task, view); card.append(view);
+      }
       const action = { queued: ['plan','Generate plan'], planned: ['review','Request review'], in_review: ['approve','Approve plan'] }[status];
       if (action) {
         const button = node('button', action[1]);
@@ -68,6 +74,7 @@ function render() {
         card.append(node('small', latest ? `Latest run: ${latest.status}` : 'Plan approved · execution not started'));
         if (state.runner && task.adapter === 'github') {
           const start = node('button', 'Run scoped edits');
+          rememberFocus(start, `task-${task.id}-run`, [`task-${task.id}-plan`, 'workflow-heading']);
           start.disabled = Boolean(state.runner.active);
           start.onclick = () => {
             runTask = task;
@@ -109,24 +116,42 @@ function render() {
     const row = node('article', undefined, 'project-card run-card');
     row.append(node('span', result.status, 'badge'), node('h3', state.tasks.find(t => t.id === result.task_id)?.title ?? result.task_id),
       node('p', result.summary || 'Preparing a pinned source snapshot…'), node('small', result.base_sha ? `Base ${result.base_sha}` : 'Base revision pending'));
-    const view = node('button', 'View evidence', 'text-button'); view.onclick = () => showResult(result.id, view); row.append(view);
+    const view = node('button', 'View evidence', 'text-button');
+    rememberFocus(view, `run-${result.id}-evidence`, ['refresh-runs']);
+    view.onclick = () => showResult(result.id, view); row.append(view);
     if (['preparing','running'].includes(result.status)) {
       const cancel = node('button', 'Cancel run', 'text-button'); cancel.onclick = () => run(cancel, async () => { await api(`/api/runs/${result.id}/cancel`, {}); await refresh(); message('Run cancelled.'); }); row.append(cancel);
     }
     return row;
   }));
   if (!filteredRuns.length) $('#runs').append(node('p', selectedProjectId === 'all' ? 'No executions yet. Approve a GitHub plan, then run scoped edits.' : 'No runs for this repository.', 'empty'));
+  // A submission or polling refresh can replace the button after a dialog closes.
+  if (focusReturn && !document.querySelector('dialog[open]')) restoreFocus(focusReturn);
+}
+function rememberFocus(trigger, id, fallbackIds) {
+  trigger.id = id;
+  focusReturns.set(trigger, { trigger, id, fallbackIds });
+}
+function restoreFocus(target) {
+  if (!target) return;
+  // Prefer the original control, then its replacement, then nearby controls.
+  const candidates = [target.trigger, ...[target.id, ...target.fallbackIds].map(id => document.getElementById(id))];
+  for (const candidate of candidates) {
+    if (!candidate?.isConnected || candidate.disabled) continue;
+    candidate.focus();
+    if (document.activeElement === candidate) {
+      candidate.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      return;
+    }
+  }
 }
 function openDialog(dialog, trigger) {
-  lastActiveElement = trigger || document.activeElement;
+  trigger ||= document.activeElement;
+  dialogTriggers.set(dialog, focusReturns.get(trigger) || { trigger, id: trigger?.id, fallbackIds: ['workflow-heading'] });
   dialog.showModal();
 }
 function closeDialog(dialog) {
   dialog.close();
-  if (lastActiveElement && typeof lastActiveElement.focus === 'function') {
-    lastActiveElement.focus();
-    lastActiveElement = null;
-  }
 }
 function downloadPatch(result) {
   const url = URL.createObjectURL(new Blob([result.patch], { type: 'text/plain;charset=utf-8' }));
@@ -206,15 +231,22 @@ if (filterElem) {
     render();
   };
 }
+rememberFocus($('#new-task'), 'new-task', ['workflow-heading']);
 $('#new-task').onclick = event => openDialog($('#task-dialog'), event.currentTarget);
 $('#close-task').onclick = () => closeDialog($('#task-dialog'));
 $('#close-plan').onclick = () => closeDialog($('#plan-dialog'));
 $('#close-run').onclick = () => closeDialog($('#run-dialog'));
 $('#close-result').onclick = () => closeDialog($('#result-dialog'));
-$('#task-dialog').oncancel = () => closeDialog($('#task-dialog'));
-$('#plan-dialog').oncancel = () => closeDialog($('#plan-dialog'));
-$('#run-dialog').oncancel = () => closeDialog($('#run-dialog'));
-$('#result-dialog').oncancel = () => closeDialog($('#result-dialog'));
+for (const id of ['task-dialog', 'plan-dialog', 'run-dialog', 'result-dialog']) {
+  const dialog = $(`#${id}`);
+  // Native Escape, close buttons and successful submissions share this event.
+  dialog.onclose = () => {
+    if (dialog.open) return;
+    const target = dialogTriggers.get(dialog);
+    dialogTriggers.delete(dialog);
+    if (!document.querySelector('dialog[open]')) restoreFocus(target);
+  };
+}
 $('#refresh-runs').onclick = () => run($('#refresh-runs'), refresh);
 $('#run-form').onsubmit = event => {
   event.preventDefault();
