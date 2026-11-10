@@ -23,3 +23,7 @@ type RunnerAdapter = {
 ```
 
 Future invariants: normalize identities once; immutable revision/patch provenance; separate execution, test and publication states; never synthesize passing check evidence; explicit provider error and timeout handling; idempotent external writes; tenant ownership on every request; capabilities gate UI actions; source files remain untrusted input. A private Anthropic Scion adapter stays unavailable unless a legitimate public/authorized interface exists.
+
+## Pinned source experiment
+
+The [open_scion / Graft compatibility spike](OPEN-SCION-2026-11-10.md) records a pinned git-ai version, build prerequisites and deviations, a disposable CLI/RPC fixture, errors and a smaller read-only interface proposal. Repository identity must include the configured endpoint, storage and relative path; GitHub supplies the authoritative identity and base SHA. This experiment does not enable an adapter or implement publication, synchronization or migration.
