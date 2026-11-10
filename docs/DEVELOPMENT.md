@@ -80,6 +80,25 @@ In a completed run's **View evidence** dialog, **Download patch** saves the exac
 
 `scripts/browser-smoke.cjs` imports public metadata and exercises the planning UI. `scripts/public-runner-smoke.mjs` additionally resolves/fetches a small real public GitHub source and creates a local-only patch. These two scripts require network access and are not in the offline CI suite.
 
+### Dialog keyboard walkthrough
+
+With the local demo running, use Tab / Shift+Tab to reach **+ New task**, then Enter to open it. Close with Escape or Tab to **Close** and press Enter; focus returns to **+ New task**. Create a task, generate its plan, request review and approve it. Repeat the same open/close sequence for **View plan**, **Run scoped edits** and a completed run's **View evidence**. Submit a task or valid scoped edits with the submit button using Enter; the same focus restoration applies. Invalid submissions keep the dialog open. At 390px, the focused control should remain visible and the page and dialogs should not scroll horizontally.
+
+Native `<dialog>` handles modality, Escape and tab navigation. After closing, focus returns to the original trigger or its replacement with the same task/run ID. If **Run scoped edits** is unavailable, the fallback is that task's **View plan**. If the task is no longer visible, or **+ New task** is disabled, focus moves to the **Workflow board** heading (programmatically focusable, outside the Tab order). If the evidence row is gone, focus moves to **Refresh results**. Later state refreshes preserve focus on rebuilt dialog triggers without moving focus out of an open dialog.
+
+Run the keyboard regression with an installed Playwright package and a fresh local demo database:
+
+```sh
+export TMPDIR="$HOME/workspace/.tmp" # Use an existing, writable temporary directory.
+FORGE_DB=data/dialog-focus.sqlite PORT=4319 npm run demo:runner
+# In another terminal, with the same TMPDIR (and PLAYWRIGHT_MODULE if needed):
+FORGE_URL=http://127.0.0.1:4319 node scripts/dialog-focus-smoke.cjs
+```
+
+The script uses keyboard input for all UI actions at 1440px and 390px. It checks Escape, close buttons, successful forms, rejected JSON, visible focus and horizontal overflow against a real local scoped-edit run. Explicit state refreshes and temporary in-page state changes simulate replaced/disabled/removed triggers; these are UI regressions, not live concurrent-user evidence. Screenshots and the JSON report are written to ignored `qa/`.
+
+390px examples: [scoped-edit dialog](assets/dialog-focus-mobile.png) and [focus returned after closing evidence](assets/dialog-focus-return-mobile.png).
+
 ## Test scope
 
 Tests cover persistence, optimistic state transitions, webhook signature/replay/ordering, App signing/token caching, pinned Git snapshots, source preservation, actual diff hashes, failed static checks, nonexecution of repository code, path/UTF-8 restrictions, cancellation, descendants, deadlines, restart recovery and API boundaries.

@@ -13,3 +13,9 @@
 #run-detail li { font-size: 12px; white-space: pre-wrap; }
 #edits { font: 12px/1.7 Consolas, monospace; }
 .project-card strong { display: block; margin-top: 12px; }
+:focus-visible { scroll-margin: 8px; }
+@media (max-width: 700px) {
+  #workflow > .section-heading { flex-wrap: wrap; }
+  .workflow-controls { flex-wrap: wrap; max-width: 100%; }
+  .workflow-controls select { max-width: 100%; }
+}
