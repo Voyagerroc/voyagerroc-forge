@@ -6,6 +6,7 @@ const $ = selector => document.querySelector(selector);
 const node = (tag, text, className) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; };
 const labels = { queued: 'Queued', planned: 'Planned', in_review: 'In review', approved: 'Approved' };
 const message = text => { $('#message').textContent = text; };
+const formatBytes = bytes => bytes >= 1024 * 1024 ? `${bytes / (1024 * 1024)} MiB` : `${bytes / 1024} KiB`;
 async function api(path, data) {
   const response = await fetch(path, data === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forge-Client': 'local-ui' }, body: JSON.stringify(data) });
   const result = await response.json();
@@ -69,10 +70,13 @@ function render() {
             $('#run-task-title').textContent = task.title;
             $('#edits').value = '';
             const banner = $('#runner-limits');
-            if (banner && state.runner) {
-              const timeoutSec = Math.round(state.runner.timeoutMs / 1000);
-              banner.textContent = `Limits: max 20 file edits, max 256 KiB total text, ${timeoutSec}s timeout. Up to 200 tracked files (10 MiB) in snapshot.`;
-            }
+            const { snapshot, edits } = state.runner.limits;
+            banner.replaceChildren(
+              node('strong', 'Runner limits'),
+              node('p', `Source snapshot: ${snapshot.minFiles}–${snapshot.maxFiles} regular tracked files, up to ${formatBytes(snapshot.maxFileBytes)} per file and ${formatBytes(snapshot.maxBytes)} total.`),
+              node('p', `Edits: ${edits.minCount}–${edits.maxCount} files; up to ${formatBytes(edits.maxTextBytes)} of UTF-8 text across all before and after strings combined.`),
+              node('p', `Run timeout: ${state.runner.timeoutMs / 1000} seconds.`)
+            );
             openDialog($('#run-dialog'), start);
           };
           card.append(start);

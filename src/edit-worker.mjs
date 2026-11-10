@@ -5,6 +5,8 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { isUtf8 } from 'node:buffer';
 
+export const EDIT_LIMITS = Object.freeze({ minCount: 1, maxCount: 20, maxTextBytes: 256 * 1024 });
+
 export function editPath(value) {
   if (typeof value !== 'string' || value.length > 240 || !value || value.includes('\\') ||
       value.split('/').some(p => !p || p === '.' || p === '..' || p.toLowerCase() === '.git') ||
@@ -14,7 +16,8 @@ export function editPath(value) {
   return value;
 }
 export function validateEdits(edits) {
-  if (!Array.isArray(edits) || edits.length < 1 || edits.length > 20) throw new Error('Provide 1–20 file edits');
+  if (!Array.isArray(edits) || edits.length < EDIT_LIMITS.minCount || edits.length > EDIT_LIMITS.maxCount)
+    throw new Error(`Provide ${EDIT_LIMITS.minCount}–${EDIT_LIMITS.maxCount} file edits`);
   const seen = new Set();
   let bytes = 0;
   for (const edit of edits) {
@@ -28,7 +31,7 @@ export function validateEdits(edits) {
       throw new Error('Each edit needs a unique nonempty before string (or null for a new file) and different after text');
     bytes += Buffer.byteLength(edit.after) + Buffer.byteLength(edit.before ?? '');
   }
-  if (bytes > 256 * 1024) throw new Error('Edits exceed 256 KiB');
+  if (bytes > EDIT_LIMITS.maxTextBytes) throw new Error(`Edits exceed ${EDIT_LIMITS.maxTextBytes / 1024} KiB of combined before/after UTF-8 text`);
   return edits.map(({ path, before, after }) => ({ path, before, after }));
 }
 

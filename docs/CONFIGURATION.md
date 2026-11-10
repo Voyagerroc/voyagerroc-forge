@@ -38,6 +38,8 @@ The server intentionally validates loopback Host. Public webhook ingress, truste
 
 ## Runtime limits
 
-One active run per server process; no durable queue. Overall deadline 60 seconds; subprocess deadline 30 seconds; source API requests have a 15-second bound. Up to 200 tracked regular files, 1 MiB per file and 10 MiB snapshot content. Up to 20 edits, 256 KiB combined replacement text. Git fetch precedes tree-size inspection and is not protected by a disk quota.
+One active run per server process; no durable queue. Overall deadline 60 seconds; subprocess deadline 30 seconds; source API requests have a 15-second bound. Snapshots contain 1–200 tracked regular files, at most 1 MiB per file and 10 MiB total content. Runs accept 1–20 edits and at most 256 KiB of UTF-8 text across all `before` and `after` strings combined (`before: null` contributes no bytes). Git fetch precedes tree-size inspection and is not protected by a disk quota.
+
+`GET /api/state` exposes these bounds through `runner.limits.snapshot` (`minFiles`, `maxFiles`, `maxFileBytes`, `maxBytes`) and `runner.limits.edits` (`minCount`, `maxCount`, `maxTextBytes`). `Runner.capabilities()` uses the same frozen definitions as snapshot enforcement and `validateEdits()`; the run dialog reads this metadata before submission. These describe input limits, not limits on the resulting edited tree. The dialog also explains that checks cover edited-file conflicts, edited JSON parsing, edited JavaScript syntax and diff whitespace; no project tests or AI generation run.
 
 Use [SECURITY.md](../SECURITY.md) and the [runner notes](RUNNER-2026-10-28.md) before changing these boundaries.
