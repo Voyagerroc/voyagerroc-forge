@@ -61,6 +61,8 @@ The runner's syntax/JSON/conflict/whitespace checks are static validation, not e
 
 ## Optional browser acceptance
 
+The repository filter scopes both workflow-board columns and runner history. **All repositories** restores both, including runs whose task is no longer available. Refresh retains a valid selection; a repository removed from the returned state falls back to **All repositories**. The new-task form keeps its own repository selection. For a focused check, use synthetic state with two repositories and runs for each, change the filter by keyboard, refresh, and verify both sections plus the empty-repository case at desktop and 390px widths. The built-in tests cover these cases with a stubbed DOM.
+
 Install Playwright temporarily without changing the manifest/lockfile:
 
 ```sh
