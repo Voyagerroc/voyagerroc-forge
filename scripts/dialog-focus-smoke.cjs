@@ -42,9 +42,19 @@ const fs = require('node:fs');
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'Page overflow');
         if (dialog) assert.equal(await dialog.evaluate(el => el.scrollWidth > el.clientWidth), false, 'Dialog overflow');
       }
+      // The visible heading is the accessible name; a screen reader announces e.g.
+      // "Create a workflow, dialog" and a role-based locator can find it.
+      const dialogNames = {
+        task: 'Create a workflow',
+        plan: 'Workflow specification',
+        run: 'Run scoped edits',
+        result: 'Run evidence',
+      };
       async function open(trigger, id) {
         await activate(trigger);
-        const dialog = page.locator(`#${id}-dialog`);
+        // Find the dialog by role and accessible name, not by CSS id, so a missing
+        // aria-labelledby (or a stale heading) fails here instead of at review time.
+        const dialog = page.getByRole('dialog', { name: dialogNames[id], exact: true });
         await dialog.waitFor({ state: 'visible' });
         // Native dialogs can visit browser chrome at the tab boundary, but not the background page.
         await tabTo(page.locator(`#close-${id}`));
@@ -178,7 +188,8 @@ const fs = require('node:fs');
       }
       report.viewports.push({ width, keyboardOnly: true, nativeModal: true, escapeAndClose: true,
         taskAndRunSubmission: true, replacedTriggers: true, unavailableTriggers: true,
-        postCloseRefresh: true, pendingEvidenceRefresh: true, focusVisible: true, overflow: false, realLocalRun: 'passed' });
+        postCloseRefresh: true, pendingEvidenceRefresh: true, focusVisible: true, dialogNames: true,
+        overflow: false, realLocalRun: 'passed' });
       await page.close();
     }
     assert.deepEqual(report.pageErrors, []);

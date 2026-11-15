@@ -4,6 +4,9 @@
 
 ### Fixed
 
+- The Create a workflow, Workflow specification and Run evidence dialogs take
+  their accessible name from their visible heading, so a screen reader
+  announces each dialog by purpose instead of only "dialog" (#22).
 - Starting Forge while its port is already held exits with a message naming
   the port and a `PORT=` hint instead of a raw EADDRINUSE stack trace (#1).
 
