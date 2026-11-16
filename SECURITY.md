@@ -6,7 +6,7 @@ Pre-1.0 experimental software. Fixes target the latest `main` and current protot
 
 ## Report privately
 
-Use [GitHub private vulnerability reporting](https://github.com/Voyagerroc/voyagerroc-forge/security/advisories/new). If unavailable, contact **voyagerroc@voyagerroctechnologies.com** with a minimal reproduction and impact description. Do not post credentials, private source or exploitable details in a public issue.
+Use [GitHub private vulnerability reporting](https://github.com/Voyagerroc/voyagerroc-forge/security/advisories/new). If unavailable, contact **erol@voyagerroctechnologies.com** with a minimal reproduction and impact description. Do not post credentials, private source or exploitable details in a public issue.
 
 ## Current boundaries
 

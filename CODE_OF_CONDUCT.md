@@ -15,6 +15,6 @@ Harassment, threats, discriminatory abuse, sexual harassment, doxxing, publishin
 
 ## Reporting and enforcement
 
-Report concerns to **voyagerroc@voyagerroctechnologies.com**, including concerns involving a maintainer. The repository maintainer handles reports; share only necessary information. There is no guaranteed response time.
+Report concerns to **erol@voyagerroctechnologies.com**, including concerns involving a maintainer. The repository maintainer handles reports; share only necessary information. There is no guaranteed response time.
 
 Maintainers may remove abusive content, close disruptive discussions, warn participants or restrict participation. Responses should be proportionate to behavior and impact. This policy covers issues, pull requests and other spaces maintained for this project.

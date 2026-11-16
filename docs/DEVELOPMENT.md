@@ -6,13 +6,13 @@
 npm run check
 ```
 
-Runs documentation-link validation, syntax checks and Node's built-in tests. The suite uses local fixture repositories and generated test-only keys; it does not need GitHub/model/cloud credentials or network access. Git and Node.js 24.19+ are required. The local Windows run passed 63 tests; hosted Linux/Windows results have not been obtained.
+Runs documentation-link validation, syntax checks and Node's built-in tests. The suite uses local fixture repositories and generated test-only keys; it does not need GitHub/model/cloud credentials or network access. Git and Node.js 24.19+ are required. Use the check summary for the tested revision; the workflow badge links to current hosted results.
 
-## CI activation
+## Continuous integration
 
-The [GitHub Actions template](ci/github-actions.yml) targets Ubuntu and Windows, uses read-only repository permissions, pins actions to verified commits and runs the offline check command. It is stored outside `.github/workflows` and therefore does not execute automatically.
+The [active workflow](../.github/workflows/ci.yml) runs on pull requests, pushes to main and manual dispatch. It targets Ubuntu and Windows with Node.js 24.19.0, read-only repository permissions and commit-pinned actions using the Node 24 runtime. No npm install, provider credentials, browser profile or connected-repository workloads are needed.
 
-The initial publishing credential has repository access but lacks `workflow` scope. An authorized maintainer can enable CI through GitHub's web editor, or refresh their own CLI authorization with `gh auth refresh -h github.com -s workflow`, then copy the template to `.github/workflows/ci.yml` and push it. Check the resulting jobs before claiming either hosted platform passes. The current public prototype does not require CI activation to run locally or accept pull requests.
+The [portable template](ci/github-actions.yml) contains the same job for forks. Workflow configuration is separate from check outcomes: inspect the actual run for the reviewed commit before claiming either hosted platform passes. Dependabot monitors action updates; each update still needs review. The CI suite does not implement the OS-isolated execution backend tracked in issue #6, run arbitrary project tests or change the prototype's local single-user boundaries.
 
 For interactive work:
 

@@ -6,7 +6,7 @@
 
 An experimental, GitHub-connected framework starter for reviewable agent workflows.
 
-[![Local checks](https://img.shields.io/badge/local_checks-63_passed-43853d.svg)](docs/DEVELOPMENT.md)
+[![Offline checks](https://github.com/Voyagerroc/voyagerroc-forge/actions/workflows/ci.yml/badge.svg)](https://github.com/Voyagerroc/voyagerroc-forge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-24.19%2B-43853d.svg)](https://nodejs.org/)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](#project-status)
@@ -88,7 +88,7 @@ Start with [`Runner`](src/runner.mjs), [`GitHubAdapter`](src/github.mjs), [`open
 
 ## Project status
 
-**v0.2.0 prototype — working foundations, open design space.**
+**v0.2.1 prototype — working foundations, open design space.**
 
 AI coding harnesses, container/VM-isolated project tests, draft PR publication, login/teams, durable queues and hosted operation are on the [roadmap](ROADMAP.md). `open_scion` and Google Scion adapters are explicitly **planned**; no compatibility is claimed. Forge is independent of GitHub, Anthropic and Google.
 
@@ -114,7 +114,7 @@ npm run check
 npm run dev
 ```
 
-The offline check command uses Node's built-in test runner; no package installation is needed. A Linux/Windows CI template is included; automatic CI is not activated yet because the publishing credential lacks workflow permission. Optional browser acceptance scripts require Playwright; see [development and verification](docs/DEVELOPMENT.md).
+The offline check command uses Node's built-in test runner; no package installation is needed. The [read-only CI workflow](.github/workflows/ci.yml) runs these checks on clean Ubuntu and Windows runners with Node.js 24.19.0. Check the linked workflow result for the revision being reviewed; a configured workflow is not itself a passing result. Optional browser acceptance scripts require Playwright; see [development and verification](docs/DEVELOPMENT.md).
 
 Configuration, GitHub App setup, webhook boundaries and source mappings: [CONFIGURATION.md](docs/CONFIGURATION.md). `.env.example` is a reference; `.env` is not loaded automatically.
 

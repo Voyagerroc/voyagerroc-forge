@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 — Prototype maintenance
 
 ### Fixed
 
@@ -9,6 +9,17 @@
   announces each dialog by purpose instead of only "dialog" (#22).
 - Starting Forge while its port is already held exits with a message naming
   the port and a `PORT=` hint instead of a raw EADDRINUSE stack trace (#1).
+
+### Maintenance
+
+- Activate the offline dependency-free check suite on clean Ubuntu/Windows
+  pull-request runners with read-only permissions and pinned Node 24 actions.
+- Monitor GitHub Actions through Dependabot and link actual CI outcomes rather
+  than a fixed historical test-count badge.
+- Use erol@voyagerroctechnologies.com consistently for private reports.
+
+This remains an experimental, single-user prototype; the isolated execution
+backend in #6 and hosted multi-user operation are not implemented.
 
 ## 0.2.0 — First public prototype
 
