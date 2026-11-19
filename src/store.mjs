@@ -38,8 +38,8 @@ function lockDatabase(filename) {
   };
 }
 
-// readOnly opens an existing database without the server lock and without creating or migrating anything,
-// so evidence can be exported while a server is running on the same file. It cannot write.
+// readOnly opens an existing database without the server lock and without creating tables or migrating the schema,
+// so evidence can be exported while a server is running on the same file. It cannot write to the database, but SQLite may leave -shm and -wal side files next to it.
 export function openStore(filename, { readOnly = false } = {}) {
   if (readOnly) return openLockedStore(filename, () => {}, true);
   let release = () => {};

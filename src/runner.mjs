@@ -29,9 +29,10 @@ export const isJavaScriptPath = path => /\.(?:js|mjs|cjs)$/.test(path);
 
 // Materialises the tracked files of one commit of `source` into <root>/workspace and commits them as the
 // pinned snapshot. Reads the source repository with ls-tree and cat-file only; never writes to it.
-export async function pinSnapshot(source, sha, root, signal) {
+// `env` is added to the Git calls that read `source`; verification uses it to forbid fetching into the source.
+export async function pinSnapshot(source, sha, root, signal, env) {
   if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Source revision is not a valid SHA-1 commit');
-  const tree = (await git(['ls-tree','-r','-z','-l',sha], { cwd: source, signal })).toString('utf8').split('\0').filter(Boolean);
+  const tree = (await git(['ls-tree','-r','-z','-l',sha], { cwd: source, signal, env })).toString('utf8').split('\0').filter(Boolean);
   if (tree.length < SNAPSHOT_LIMITS.minFiles || tree.length > SNAPSHOT_LIMITS.maxFiles)
     throw new Error(`Source snapshot must contain ${SNAPSHOT_LIMITS.minFiles}–${SNAPSHOT_LIMITS.maxFiles} tracked files`);
   const entries = tree.map(line => {
@@ -62,7 +63,7 @@ export async function pinSnapshot(source, sha, root, signal) {
     signal.throwIfAborted();
     const target = resolve(workspace, entry.path);
     await mkdir(resolve(target, '..'), { recursive: true });
-    await writeFile(target, await git(['cat-file','blob',entry.blob], { cwd: source, signal, maxBytes: SNAPSHOT_LIMITS.maxFileBytes }));
+    await writeFile(target, await git(['cat-file','blob',entry.blob], { cwd: source, signal, env, maxBytes: SNAPSHOT_LIMITS.maxFileBytes }));
   }
   await git(['init','--quiet'], { cwd: workspace, signal });
   await git(['add','--force','--all'], { cwd: workspace, signal });

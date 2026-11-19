@@ -2,7 +2,7 @@
 // npm run evidence:verify -- <file> --repo <path to a local Git repository> [--json]
 // Exit codes: 0 every verifiable claim matches, 1 at least one mismatch, 2 unusable input.
 import { openStore } from '../src/store.mjs';
-import { exportEvidence, parseBundle, verifyEvidence, formatReport, EvidenceInputError, MAX_BUNDLE_BYTES } from '../src/evidence.mjs';
+import { exportEvidence, parseBundle, verifyEvidence, formatReport, formatJson, EvidenceInputError, MAX_BUNDLE_BYTES } from '../src/evidence.mjs';
 import { readFile, writeFile, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 
@@ -52,7 +52,7 @@ async function verifyCommand(args) {
   if (info.size > MAX_BUNDLE_BYTES) throw new EvidenceInputError(`${positional[0]} is larger than ${MAX_BUNDLE_BYTES / (1024 * 1024)} MiB, which is more than a Forge bundle can be.`);
   const bundle = parseBundle(await readFile(positional[0]));
   const result = await verifyEvidence(bundle, values['--repo']);
-  process.stdout.write(values['--json'] ? `${JSON.stringify(result, null, 2)}\n` : formatReport(result));
+  process.stdout.write(values['--json'] ? formatJson(result) : formatReport(result));
   process.exitCode = result.exitCode;
 }
 
