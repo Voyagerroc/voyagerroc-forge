@@ -24,7 +24,7 @@ The database stores projects, tasks, runs, events, deliveries and PR snapshots. 
 
 GitHub is initially authoritative. A public run resolves fresh branch HEAD and reads exact Git objects into a disposable copy. Operator mappings use committed local HEAD. Original source repositories are not modified.
 
-Source control and execution should remain separate abstractions. `open_scion` is a source-control experiment; Google Scion is agent orchestration. Both remain planned. Read the [proposed adapter contract](ADAPTER-CONTRACT.md) before designing an implementation.
+Source control and execution should remain separate abstractions. `open_scion` is a source-control experiment; Google Scion is agent orchestration. Both appear in the API and the interface as placeholders with status `planned`. Nothing is implemented, no work is scheduled and no compatibility is claimed (see the [roadmap](../ROADMAP.md)). Read the [proposed adapter contract](ADAPTER-CONTRACT.md) before designing an implementation.
 
 The current runner is a trusted fixed edit worker with static checks. Future harnesses/tests need OS isolation and real lifecycle/resource/network policies. Keep capability flags honest and preserve the reviewable artifact boundary.
 

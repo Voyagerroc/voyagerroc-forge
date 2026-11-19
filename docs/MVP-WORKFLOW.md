@@ -1,10 +1,10 @@
 # MVP workflow and delivery plan
 
-Current milestone: v0.2 now implements disposable pinned source workspaces, explicit file edits, real static checks, persisted diffs and cancellation. The plan approval stages below remain distinct from execution results. See [Runner delivery and boundaries](RUNNER-2026-10-28.md). The original v0.1 validation notes below are historical.
+Current milestone: v0.3. Each change is shown as one record with its evidence, and a finished run can be exported as a portable bundle and verified independently ([EVIDENCE.md](EVIDENCE.md)). v0.2 implemented disposable pinned source workspaces, explicit file edits, real static checks, persisted diffs and cancellation. The plan approval stages below remain distinct from execution results. See [Runner delivery and boundaries](RUNNER-2026-10-28.md). The original v0.1 validation notes below are historical.
 
 ## Product slice
 
-Primary user: a developer coordinating coding agents while keeping GitHub as the source of truth. First acceptance journey: connect a repository → describe intent → inspect workflow plan → request review → approve the plan → inspect an auditable activity record. Real execution and publication are a second slice.
+Primary user: a developer who needs to trust a change without trusting whoever produced it, while keeping GitHub as the source of truth. First acceptance journey: connect a repository → describe intent → inspect workflow plan → request review → approve the plan → inspect an auditable activity record. Real execution and publication are a second slice.
 
 ```mermaid
 flowchart LR
@@ -44,7 +44,9 @@ Data model: Project (GitHub numeric identity, canonical name, branch, latest obs
 
 Scion adapters stay labeled `planned`: the API still reports them with that status, and the task dialog offers only adapters that work. No adapter selection grants an unimplemented capability. Approval must not later be silently repurposed as permission to publish; add an explicit publication approval referencing the verified patch SHA.
 
-## Next implementation milestones
+## Next implementation milestones (historical)
+
+This list was written for the first MVP and is kept as a record. It is not the current plan: the [roadmap](../ROADMAP.md) is. Since this list was written, the direction changed to evidence for a change; AI code generation inside Forge is not planned, and the Scion adapters and the hosted pilot below are placeholders with no work scheduled.
 
 1. **Runner spike:** validate one supported harness in a disposable sandbox. Pin base SHA, isolate workspace, bound runtime/resources and redact logs. Capture patch + actual checks. Cancellation must stop descendants and release workspace. Never execute arbitrary repository code inside the HTTP server.
 2. **GitHub write integration:** add least-privilege App permissions only when needed. Create a separate branch and draft PR, use task/patch idempotency keys, reconcile ambiguous timeout outcomes, protect default branch and never force-push or auto-merge. Require explicit publication approval for the exact patch.

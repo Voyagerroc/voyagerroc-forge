@@ -1,57 +1,46 @@
 # Roadmap
 
-A contribution map, not a delivery-date promise.
+Direction: **a change that carries its own proof.** Writing a change has become cheap; trusting it has not. Forge's answer is a change that records what it was based on, exactly what changed, what was checked and what was not, and when its plan was approved. Anyone can re-check the source, the exact change and the static checks without trusting whoever produced it; the approval time and the intent are recorded but cannot be verified.
 
-## Available in v0.2
+This is a contribution map, not a delivery-date promise. Items under "Next" and "Later" are plans, not features.
 
-- [x] GitHub metadata, fresh revision resolution, read-only App auth support
-- [x] Persistent intent → plan → review → approval
-- [x] Disposable pinned Git snapshots and explicit edits
-- [x] Actual diffs, patch hashes and named static checks
-- [x] Cancellation, process-tree termination and interrupted-run recovery
-- [x] Signed/idempotent event ingestion
-- [x] Local demo, responsive UI and offline regression tests
+## Done
+
+- [x] Evidence bundle for a finished run and independent verification: `npm run evidence:export`, `npm run evidence:verify`, `GET /api/runs/:id/evidence` (#35, [docs/EVIDENCE.md](docs/EVIDENCE.md))
+- [x] One change record per task, with the evidence in the page (#36)
+- [x] Per-task recorded events in the state response (#34)
+- [x] 0.2.2 fixes: overlapping edit matches rejected, one live server per database file, the real version in `/api/health`, edit worker input limit aligned with the server (#28, #30, #31, #32), and request-protection tests (#29)
+- [x] Offline CI on Ubuntu and Windows (#24); accessible dialog names (#23); keyboard focus restoration (#19); runner limits shown before a run (#18); repository filter (#17); patch download (#16)
+- [x] Persistent intent → plan → review → approval; disposable pinned Git snapshots; exact edits; actual diffs, patch hashes and named static checks; cancellation and restart recovery; signature-verified, deduplicated GitHub webhook events
+
+## Next
+
+- [ ] Produce the evidence inside the maintainer's own GitHub Actions run and attach it to a pull request, so the proof arrives with the change
+- [ ] Sign the evidence through existing standards (GitHub artifact attestations, Sigstore) instead of a format of its own, so a bundle also proves origin
+- [ ] Import a patch that was produced outside Forge and give it the same record and verification
+
+## Later
+
+- [ ] An OS-isolated execution backend with resource and network boundaries ([issue #6](https://github.com/Voyagerroc/voyagerroc-forge/issues/6)). **This is the gate for running any project code:** until it exists, Forge does not run project tests, install dependencies or execute repository code.
+  - [ ] Threat model and capability contract
+  - [ ] One backend with real exit codes and log provenance
+  - [ ] Cancellation, cleanup and crash recovery for that backend
+- [ ] Draft pull request tied to the exact reviewed patch hash, with least-privilege write permission, idempotent writes and no automatic merge
+- [ ] Adapters for `open_scion` and Google Scion. Nothing is implemented and no date is set: the API and the interface list them as placeholders with status `planned`, and no compatibility is claimed. Forge has no verified contract with either system, so the [adapter contract](docs/ADAPTER-CONTRACT.md) stays a proposal until a working implementation justifies it.
+- [ ] If a hosted part ever comes, a thin service for evidence pages and verification. User code does not run on it.
+
+## The 90-day test
+
+If no second outside user adopts this direction within 90 days of 19 November 2026, the direction is reconsidered. Adoption means someone other than the maintainer uses the record and the evidence bundle on their own changes and says so, for example in an issue or a pull request. The result, either way, will be written here.
 
 ## Small contributions welcome
 
-- [x] Actionable occupied-port error handling
-- [x] Repository filters for tasks and history
-- [x] Runner limits visible before starting
-- [x] Keyboard focus restoration in dialogs
-- [x] Case-colliding source directory regression fixtures
+Good first work is usually bounded: a reproduction of friction in the two-minute demo, a missing test for a documented rule, a clearer message, or a keyboard or mobile defect in the record. Look for the `good first issue`, `help wanted` and `area:` [labels](https://github.com/Voyagerroc/voyagerroc-forge/labels). If none fits, or the change is large, ask in an issue before starting. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Check the [labels](https://github.com/Voyagerroc/voyagerroc-forge/labels) and the open issues for starter work (the `good first issue` label); if none is open, propose a small one in an issue first. Comment before a large patch to avoid duplicate work; small fixes need no reservation.
+## Not planned
 
-## Isolated execution
+- **AI code generation inside Forge.** The direction is proof for a change, whoever or whatever wrote it; a generator would add a claim Forge cannot check.
+- **Hosted multi-user operation** (login, tenants, durable queues). It is not needed for the direction, and the local, single-user boundary is what keeps the security model small.
+- **A format of our own for signatures.** Existing standards are better understood and already supported.
 
-- [ ] Define OS/container threat model and capability contract
-- [ ] Implement one backend with resource/network boundaries
-- [ ] Integrate one harness with explicit credentials and budgets
-- [ ] Preserve real project-check exit codes and log provenance
-- [ ] Cancellation, cleanup and crash recovery for that backend
-- [ ] Separate patch review from plan approval
-
-## GitHub publication
-
-- [ ] Least-privilege write permissions and ownership/branch checks
-- [ ] Draft PR tied to the exact reviewed patch SHA
-- [ ] Idempotent writes and timeout reconciliation
-- [ ] No automatic merge or default-branch force push
-
-## Adapter experiments
-
-- [ ] Pinned `open_scion`/Graft build and actual RPC fixture evidence
-- [ ] Google Scion orchestration lifecycle validation, separately
-- [ ] Evolve the proposed interface from working implementations
-
-Anthropic's internal Scion, independent `open_scion`, and Google Scion orchestration are different systems. No integration or affiliation is implied.
-
-## Before hosted operation
-
-- [ ] User auth, installation ownership and tenant authorization
-- [ ] Durable queue, worker leases and restart-safe scheduling
-- [ ] Migrations, backups and artifact retention
-- [ ] Secrets, quotas, audit records and trusted webhook ingress
-- [ ] Postgres/storage migration driven by measured requirements
-
-Open a scoped [proposal](https://github.com/Voyagerroc/voyagerroc-forge/issues/new/choose) with the smallest useful experiment and validation criteria.
+Open a scoped [proposal](https://github.com/Voyagerroc/voyagerroc-forge/issues/new/choose) with the smallest useful experiment and how you would validate it.

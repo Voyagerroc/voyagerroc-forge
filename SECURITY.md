@@ -2,7 +2,7 @@
 
 ## Supported version
 
-Pre-1.0 experimental software. Fixes target the latest `main` and current prototype release; no long-term support or production suitability is promised.
+Pre-1.0 experimental software. Fixes target the latest `main` and the current prototype release (0.3.x); no long-term support or production suitability is promised.
 
 ## Report privately
 
@@ -17,5 +17,7 @@ Use [GitHub private vulnerability reporting](https://github.com/Voyagerroc/voyag
 - Local source mappings are operator config, not browser-supplied paths.
 - Webhooks require HMAC verification and delivery IDs are deduplicated.
 - GitHub credentials stay server-side. Auth is read-only; upstream writes are unimplemented.
+- `GET /api/runs/<run id>/evidence` is served only on the loopback address, with the same Host check as the other routes. `npm run evidence:export` opens the database read-only, but SQLite may leave `-shm` and `-wal` files next to it.
+- The evidence bundle is not signed. It proves that its parts agree with each other and with the repository, not who produced it; times, the intent text and the approval time are recorded, not verifiable. A bundle is untrusted input to `npm run evidence:verify`, which refuses non-canonical, contradictory or hostile bundles, never writes to the repository it reads, never lets Git fetch objects, never executes repository code, and shows text taken from a bundle as escapes. See [docs/EVIDENCE.md](docs/EVIDENCE.md).
 
 Do not expose this prototype publicly or run arbitrary repository commands before implementing isolation, identity and operational controls. Static checks do not establish patch safety or functional correctness.

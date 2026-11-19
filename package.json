@@ -1,8 +1,8 @@
 {
   "name": "voyagerroc-forge",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "private": true,
-  "description": "GitHub-connected framework starter for reviewable agent workflows: pinned source, scoped edits, patches and check evidence.",
+  "description": "A change that carries its own proof: pinned source, exact edits, patch and named static checks in one record, with the approval time recorded; source, patch and checks can be re-checked by anyone.",
   "license": "MIT",
   "repository": { "type": "git", "url": "https://github.com/Voyagerroc/voyagerroc-forge.git" },
   "bugs": { "url": "https://github.com/Voyagerroc/voyagerroc-forge/issues" },
