@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.2.2 — Reliability fixes and regression tests
+
+### Fixed
+
+- An edit that must match exactly once now also rejects overlapping matches,
+  for example `aa` in `aaa`, which were previously accepted (#28).
+- Only one live server can use a database file. The server takes a
+  `<database>.lock` file and, if another live server holds it, exits with a
+  message that names the lock and shows how to use a separate `FORGE_DB`;
+  a lock left by a process that has exited is replaced (#30).
+- `/api/health` reports the version from `package.json` instead of a fixed
+  string, and unexpected server errors are written to stderr with the request
+  method, path and stack but without request bodies, headers or query strings
+  (#31).
+- The edit worker's input limit is now derived from the server's request limit
+  (1 MiB plus 16 KiB), so edits that the server accepts are no longer refused
+  by the worker (#32).
+
+### Tests
+
+- Regression tests for the server request protections: Host header checks,
+  and the `X-Forge-Client` header and content-type checks on POST requests
+  (#29).
+
+### Documentation and maintenance
+
+- README status line, runner caption and contribution link updated (#27).
+- Bump `actions/checkout` from 6.1.0 to 7.0.1 (#26) and `actions/setup-node`
+  from 6.5.0 to 7.1.0 (#25) in the CI workflow.
+
 ## 0.2.1 — Prototype maintenance
 
 ### Fixed

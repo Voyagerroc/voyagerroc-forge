@@ -6,7 +6,7 @@
 
 An experimental, GitHub-connected framework starter for reviewable agent workflows.
 
-**Status:** v0.2.1 pre-release · MIT<br>experimental · single user · loopback only
+**Status:** v0.2.2 pre-release · MIT<br>experimental · single user · loopback only
 
 [![CI status](https://github.com/Voyagerroc/voyagerroc-forge/actions/workflows/ci.yml/badge.svg)](https://github.com/Voyagerroc/voyagerroc-forge/actions/workflows/ci.yml)
 
@@ -89,7 +89,7 @@ Start with [`Runner`](src/runner.mjs), [`GitHubAdapter`](src/github.mjs), [`open
 
 ## Project status
 
-**v0.2.1 prototype — working foundations, open design space.**
+**v0.2.2 prototype — working foundations, open design space.**
 
 AI coding harnesses, container/VM-isolated project tests, draft PR publication, login/teams, durable queues and hosted operation are on the [roadmap](ROADMAP.md). `open_scion` and Google Scion adapters are explicitly **planned**; no compatibility is claimed. Forge is independent of GitHub, Anthropic and Google.
 
