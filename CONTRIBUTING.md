@@ -7,7 +7,7 @@ Welcome. Forge is an early framework starter: small, inspectable changes are esp
 1. Fork and clone the repository. Install Node.js 24.19+ and Git.
 2. Run `npm run check` for the offline suite.
 3. Run `npm run demo:runner` to try the real local fixture and evidence UI.
-4. Pick a [good first issue](https://github.com/Voyagerroc/voyagerroc-forge/contribute) or open a proposal before a large architectural change.
+4. Check the [labels](https://github.com/Voyagerroc/voyagerroc-forge/labels) and the open issues: starter issues carry the `good first issue` label. If none is open, or before a large architectural change, open a proposal.
 
 No npm install or cloud/model account is needed. Optional browser checks: [DEVELOPMENT.md](docs/DEVELOPMENT.md).
 

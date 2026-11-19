@@ -6,11 +6,9 @@
 
 An experimental, GitHub-connected framework starter for reviewable agent workflows.
 
-v0.2.1 pre-release · experimental · single user · loopback only
+**Status:** v0.2.1 pre-release · MIT<br>experimental · single user · loopback only
 
-[![Offline checks](https://github.com/Voyagerroc/voyagerroc-forge/actions/workflows/ci.yml/badge.svg)](https://github.com/Voyagerroc/voyagerroc-forge/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-experimental-orange.svg)](#project-status)
+[![CI status](https://github.com/Voyagerroc/voyagerroc-forge/actions/workflows/ci.yml/badge.svg)](https://github.com/Voyagerroc/voyagerroc-forge/actions/workflows/ci.yml)
 
 **No npm runtime dependencies · Local-first · GitHub stays the source of truth**
 
