@@ -5,6 +5,13 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { isUtf8 } from 'node:buffer';
 
+// Kept in this file: the worker runs with read access to itself only, so it cannot import a shared module.
+// The server body limit lives here too, and the server imports it, so both limits are defined once.
+export const MAX_REQUEST_BYTES = 1024 * 1024;
+// The worker input is the request's edits re-encoded by JSON.stringify, which is never longer than a valid
+// request encoding of the same edits, plus the workspace path and fixed keys. The headroom covers those.
+const MAX_WORKER_INPUT_BYTES = MAX_REQUEST_BYTES + 16 * 1024;
+
 export const EDIT_LIMITS = Object.freeze({ minCount: 1, maxCount: 20, maxTextBytes: 256 * 1024 });
 
 export function editPath(value) {
@@ -75,7 +82,7 @@ export function applyEdits(root, edits) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const chunks = []; let size = 0;
-    for await (const chunk of process.stdin) { size += chunk.length; if (size > 600000) throw new Error('Worker input too large'); chunks.push(chunk); }
+    for await (const chunk of process.stdin) { size += chunk.length; if (size > MAX_WORKER_INPUT_BYTES) throw new Error('Worker input too large'); chunks.push(chunk); }
     const input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     process.stdout.write(JSON.stringify(applyEdits(resolve(input.root), input.edits)));
   } catch (error) { process.stderr.write(error.message); process.exitCode = 1; }

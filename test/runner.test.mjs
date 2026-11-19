@@ -279,3 +279,17 @@ test('runner API starts a real job, exposes evidence and rejects cross-origin st
   const evidence = await (await fetch(`${origin}/api/runs/${run.id}`)).json(); assert.equal(evidence.status, 'passed', evidence.summary);
   const state = await (await fetch(`${origin}/api/state`)).json(); assert.equal(state.runner.aiAgent, false);
 });
+
+test('edits inside the advertised limits survive JSON escaping on the way to the edit worker', async t => {
+  const { runner, task } = await fixture(t);
+  const { maxTextBytes } = runner.capabilities().limits.edits;
+  // 110000 control characters are 110 KB of text, well inside the edit limit, and escape to 6 bytes each.
+  const after = '\u0001'.repeat(110000);
+  assert.ok(Buffer.byteLength(after) < maxTextBytes);
+  const request = JSON.stringify({ version: task.version, edits: [{ path: 'control.txt', before: null, after }] });
+  assert.ok(Buffer.byteLength(request) < 1024 * 1024, 'the request fits the server body limit');
+  assert.ok(Buffer.byteLength(JSON.stringify({ root: tmpdir(), edits: [{ path: 'control.txt', before: null, after }] })) > 600000);
+  const result = await finish(runner, runner.start(task.id, JSON.parse(request)));
+  assert.doesNotMatch(result.summary, /Worker input too large/);
+  assert.ok(result.checks.some(c => c.name === 'edit:control.txt' && c.status === 'passed'), result.summary);
+});
