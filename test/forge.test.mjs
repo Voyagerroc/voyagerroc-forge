@@ -161,6 +161,27 @@ test('task lifecycle is persistent and has optimistic concurrency guards', async
   const state = await call('/api/state'); assert.equal(state.data.tasks.length, 1); assert.equal(state.data.events.length, 5);
   assert.equal(state.data.integration.execution, 'disabled');
 });
+test('each task in the state carries its own recorded events, oldest first, beyond the 50-event project window', t => {
+  const store = openStore(':memory:'); t.after(() => store.close());
+  const project = store.connect(repo);
+  const a = store.createTask({ projectId: project.id, title: 'A', intent: 'First task', adapter: 'github' });
+  const b = store.createTask({ projectId: project.id, title: 'B', intent: 'Second task', adapter: 'github' });
+  let task = store.transition(a.id, 0, 'planned', { steps: [] });
+  task = store.transition(a.id, task.version, 'in_review');
+  task = store.transition(a.id, task.version, 'approved');
+  const run = store.createRun(a.id, task.version); store.startRun(run.id, 'c'.repeat(40));
+  store.finishRun(run.id, { status: 'failed', summary: 'x' });
+  for (let i = 0; i < 60; i++) store.connect(repo);
+  const snapshot = store.snapshot();
+  assert.equal(snapshot.events.length, 50);
+  assert.equal(snapshot.events.some(e => e.kind === 'task.created'), false, 'the project window no longer holds the oldest events');
+  const mine = snapshot.tasks.find(x => x.id === a.id).events;
+  assert.deepEqual(mine.map(e => e.kind), ['task.created', 'task.planned', 'task.in_review', 'task.approved', 'run.preparing', 'run.failed']);
+  assert.deepEqual(mine.map(e => e.run_id), [null, null, null, null, run.id, run.id]);
+  assert.deepEqual(Object.keys(mine[0]).sort(), ['created_at', 'id', 'kind', 'run_id']);
+  assert.ok(mine.every((e, i) => i === 0 || e.id > mine[i - 1].id && e.created_at >= mine[i - 1].created_at));
+  assert.deepEqual(snapshot.tasks.find(x => x.id === b.id).events.map(e => e.kind), ['task.created']);
+});
 test('database survives reopening without duplicating repository imports', t => {
   const directory = mkdtempSync(join(tmpdir(), 'forge-test-'));
   const filename = join(directory, 'test.sqlite'); let store = openStore(filename);
