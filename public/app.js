@@ -267,10 +267,11 @@ function checksSection(rn) {
 }
 function failureHelp(rn, later) {
   const box = node('div', undefined, 'fix');
-  let text = 'Read the message above, correct the edits and run again. This run stays in the record.';
+  const stopped = ['cancelled', 'interrupted'].includes(rn.status);
+  let text = stopped ? 'Start the run again when you are ready. This run stays in the record.' : 'Read the message above, correct the edits and run again. This run stays in the record.';
   if (/^Before text must match exactly once/.test(rn.summary ?? '')) text = 'The before text must appear exactly once in the file. Check its spelling and whitespace, or copy a longer, unique line.';
   const fixed = later.find(candidate => candidate.status === 'passed');
-  box.append(node('strong', 'How to fix'), node('p', fixed ? `${text} Run ${numbers.get(fixed.id)} corrected this.` : text));
+  box.append(node('strong', stopped ? 'Next step' : 'How to fix'), node('p', fixed ? `${text} Run ${numbers.get(fixed.id)} ${stopped ? 'passed afterwards' : 'corrected this'}.` : text));
   return box;
 }
 const hasEvidence = rn => !isActive(rn) && (rn.has_patch || (rn.checks ?? []).length > 0);

@@ -188,6 +188,13 @@ test('no class the record uses collides with the skip link, which is positioned 
   assert.match(readPublic('style.css'), /\.skip \{ position: absolute; left: 12px; top: -80px/);
 });
 
+test('a stopped run is not told to correct its edits', () => {
+  const data = state(); data.runs = [{ ...data.runs[1], id: 'r5', status: 'cancelled', has_patch: false, checks: [], summary: 'Run cancelled; no upstream changes were made.' }];
+  const text = textOf(open(data).record());
+  assert.match(text, /Next step Start the run again when you are ready\./);
+  assert.doesNotMatch(text, /correct the edits/);
+});
+
 test('next-step buttons keep their names and the approved task offers a run', () => {
   const data = state();
   for (const [status, label] of [['queued', 'Generate plan'], ['planned', 'Request review'], ['in_review', 'Approve plan'], ['approved', 'Run scoped edits']]) {
