@@ -54,7 +54,9 @@ export function applyEdits(root, edits) {
     if (!isUtf8(bytes)) throw new Error('Only UTF-8 text files can be edited');
     const original = bytes.toString('utf8');
     if (original.includes('\0')) throw new Error('Binary file edits are not supported');
-    if (edit.before !== null && (original.split(edit.before).length !== 2))
+    // indexOf from the next character also finds overlapping matches, which split() skips.
+    if (edit.before !== null && (original.indexOf(edit.before) === -1 ||
+        original.indexOf(edit.before, original.indexOf(edit.before) + 1) !== -1))
       throw new Error(`Before text must match exactly once: ${edit.path}`);
     const content = edit.before === null ? edit.after : original.replace(edit.before, () => edit.after);
     return { target, path: edit.path, content };
