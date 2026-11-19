@@ -27,7 +27,8 @@ function lockDatabase(filename) {
       }
       throw Object.assign(new Error(pid
         ? `Voyagerroc Forge: database ${filename} is already in use by process ${pid} (lock file ${lock}, started ${owner.started}). `
-          + 'Run one server per database, or give this server its own database, for example: FORGE_DB=data/second.sqlite npm start'
+          + `If process ${pid} is not a Forge server (a process id can be reused after a crash), delete the lock file. `
+          + 'Otherwise run one server per database, or give this server its own database, for example: FORGE_DB=data/second.sqlite npm start'
         : `Voyagerroc Forge: lock file ${lock} exists but does not name a process. If no Forge server is using ${filename}, delete the lock file; `
           + 'otherwise give this server its own database, for example: FORGE_DB=data/second.sqlite npm start'), { code: 'FORGE_DB_LOCKED' });
     }

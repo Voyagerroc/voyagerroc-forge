@@ -82,6 +82,7 @@ test('a second server on the same database cannot interrupt the first server\'s 
   assert.equal(first.getRun(run.id).status, 'running', 'the first server\'s run is still active');
   assert.match(refused?.message ?? '', /forge\.sqlite\.lock/);
   assert.match(refused.message, /FORGE_DB=/);
+  assert.match(refused.message, /delete the lock file/, 'a reused process id must not leave the operator without a way out');
   const result = first.finishRun(run.id, { status: 'passed', summary: 'done', patch: 'diff', patchSha256: 'x' });
   assert.equal(result.status, 'passed'); assert.equal(result.patch, 'diff');
 });
