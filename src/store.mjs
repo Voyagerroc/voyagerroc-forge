@@ -109,7 +109,7 @@ function openLockedStore(filename, release, readOnly) {
       const task = getTask(taskId);
       if (!task) return [];
       return db.prepare('SELECT kind,detail,created_at FROM events WHERE project_id=? ORDER BY id').all(task.project_id)
-        .map(row => ({ ...row, detail: JSON.parse(row.detail) })).filter(row => row.detail.taskId === taskId);
+        .map(row => ({ ...row, detail: JSON.parse(row.detail) })).filter(row => row.detail?.taskId === taskId);
     },
     snapshot() {
       return {

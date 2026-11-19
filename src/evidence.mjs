@@ -48,7 +48,7 @@ export function buildEvidence(store, runId) {
   const project = store.getProject(task.project_id);
   const hasPatch = typeof run.patch === 'string' && run.patch.length > 0;
   const events = store.taskEvents(task.id)
-    .filter(e => !e.kind.startsWith('run.') || e.detail.runId === run.id)
+    .filter(e => !e.kind.startsWith('run.') || e.detail?.runId === run.id)
     .map(e => ({ kind: e.kind, at: e.created_at }));
   const approved = events.findLast(e => e.kind === 'task.approved');
   const sha256 = hasPatch ? run.patch_sha256 ?? createHash('sha256').update(run.patch).digest('hex') : null;
@@ -107,11 +107,12 @@ export function parseBundle(raw) {
   if (p.patch !== null && p.base === null) throw bad('a patch needs a base commit');
   if (!Array.isArray(p.checks) || p.checks.length > 200 || !p.checks.every(c => isObject(c) && typeof c.name === 'string' && c.name.length <= 400 &&
       ['passed', 'failed', 'skipped'].includes(c.status) && typeof c.detail === 'string')) throw bad('checks must be a list of name, status and detail');
-  if (!Array.isArray(p.notRun) || !p.notRun.every(item => typeof item === 'string')) throw bad('notRun must be a list of strings');
+  if (!Array.isArray(p.notRun) || !p.notRun.every(item => typeof item === 'string') || !p.notRun.includes('project tests')) throw bad('notRun must be a list of strings that includes "project tests"');
   if (!isObject(p.run) || typeof p.run.id !== 'string' || !FINAL.includes(p.run.status)) throw bad('run must hold an id and a final status');
   if (!isObject(p.record) || !isObject(p.record.intent) || !Array.isArray(p.record.events)) throw bad('record is incomplete');
-  if (!isObject(p.tool) || typeof p.tool.version !== 'string') throw bad('tool is incomplete');
-  if (!Array.isArray(p.limits)) throw bad('limits must be a list');
+  if (p.record.planApprovedAt !== undefined && typeof p.record.planApprovedAt !== 'string') throw bad('record.planApprovedAt must be a string');
+  if (!isObject(p.tool) || typeof p.tool.name !== 'string' || typeof p.tool.version !== 'string') throw bad('tool must hold a name and a version');
+  if (!Array.isArray(p.limits) || !p.limits.every(item => typeof item === 'string')) throw bad('limits must be a list of strings');
   return bundle;
 }
 
@@ -285,9 +286,19 @@ function report(claims) {
       'The bundle is not signed: matches show that it is consistent, not who produced it.' };
 }
 
+// The table is read by a person in a terminal, and many of its words come from the bundle, which is
+// untrusted. Control characters (C0, DEL, C1: escape sequences, line breaks, tabs), line and paragraph
+// separators and bidirectional formatting characters are shown as a backslash, u and four hex digits, so
+// they can neither hide a row nor forge one. The --json output needs no such step because JSON escapes them.
+const isUnsafe = code => code <= 0x1f || (code >= 0x7f && code <= 0x9f) || code === 0x61c || code === 0x200e || code === 0x200f ||
+  code === 0x2028 || code === 0x2029 || (code >= 0x202a && code <= 0x202e) || (code >= 0x2066 && code <= 0x2069);
+export const plainText = value => Array.from(String(value), ch => isUnsafe(ch.codePointAt(0))
+  ? '\\' + 'u' + ch.codePointAt(0).toString(16).padStart(4, '0') : ch).join('');
+
 export function formatReport({ claims, summary }) {
-  const width = key => Math.max(key.length, ...claims.map(c => c[key].length));
-  const claimWidth = width('claim'); const resultWidth = Math.max(6, ...claims.map(c => c.result.length));
+  const rows = claims.map(c => ({ claim: plainText(c.claim), result: plainText(c.result), detail: plainText(c.detail) }));
+  const claimWidth = Math.max('CLAIM'.length, ...rows.map(c => c.claim.length));
+  const resultWidth = Math.max(6, ...rows.map(c => c.result.length));
   const line = (a, b, c) => `${a.padEnd(claimWidth)}  ${b.padEnd(resultWidth)}  ${c}`;
-  return [line('CLAIM', 'RESULT', 'DETAIL'), ...claims.map(c => line(c.claim, c.result, c.detail)), '', summary, ''].join('\n');
+  return [line('CLAIM', 'RESULT', 'DETAIL'), ...rows.map(c => line(c.claim, c.result, c.detail)), '', plainText(summary), ''].join('\n');
 }

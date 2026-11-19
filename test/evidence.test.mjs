@@ -251,6 +251,47 @@ test('7. unusable input exits 2 with a plain message and no stack trace', async 
 const patchFor = (path, extra = 'new file mode 100644\n') =>
   `diff --git a/${path} b/${path}\n${extra}--- /dev/null\n+++ b/${path}\n@@ -0,0 +1 @@\n+x\n`;
 
+test('7b. text from the bundle cannot change the table: escape sequences and line breaks are shown as escapes', async t => {
+  const f = await fixture(t);
+  const c = (...codes) => String.fromCharCode(...codes);
+  const ESC = c(27), LF = c(10), CR = c(13);
+  const baseline = await f.verify(f.bundle);
+  assert.equal(baseline.code, 0, baseline.out + baseline.err);
+  const baseLines = baseline.out.trimEnd().split(LF).length;
+
+  const hostile = structuredClone(f.bundle);
+  const p = hostile.predicate;
+  p.repository.fullName = 'x' + LF + ESC + '[8m' + ESC + '[2K' + c(0x9b) + '31m' + c(0x202e);
+  hostile.subject[0].name = p.repository.fullName + '@' + f.sha + '.patch';
+  p.tool.version = '1' + LF + 'MATCH  forged row' + CR + ESC + '[8m';
+  p.record.planApprovedAt = '2026-01-01' + c(0x2028) + 'MATCH  second forged row';
+  p.checks.push({ name: 'note:' + ESC + '[8m' + LF + 'MATCH  third forged row', status: 'passed', detail: 'x' });
+  const result = await f.verify(hostile);
+  assert.equal(result.code, 0, result.out + result.err);
+  const unsafe = new RegExp('[' + c(0, 45, 9) + c(11, 45, 31, 127, 45, 0x9f, 0x2028, 0x2029, 0x202a, 45, 0x202e, 0x2066, 45, 0x2069) + ']');
+  assert.equal(unsafe.test(result.out), false, 'no control character reaches the table');
+  assert.ok(result.out.includes(c(92) + 'u001b[8m'));
+  assert.equal(result.out.includes(CR), false);
+  assert.equal(result.out.trimEnd().split(LF).length, baseLines + 1, 'one extra row for the extra check, no row made from a line break');
+  assert.ok(result.out.trimEnd().split(LF).at(-1).includes('mismatched'));
+
+  const json = await f.verify(hostile, ['--json']);
+  assert.equal(json.code, 0);
+  assert.match(rowsOf(json.out).find(r => r.claim === 'tool version').detail, /MATCH {2}forged row/);
+
+  for (const [mutate, message] of [
+    [b => { b.predicate.tool.name = { x: 1 }; }, /tool must hold a name/],
+    [b => { b.predicate.record.planApprovedAt = { x: 1 }; }, /planApprovedAt/],
+    [b => { b.predicate.notRun = []; }, /project tests/],
+    [b => { b.predicate.limits = [1]; }, /limits/]
+  ]) {
+    const broken = structuredClone(f.bundle); mutate(broken);
+    const bad = await f.verify(broken);
+    assert.equal(bad.code, 2);
+    assert.match(bad.err, message);
+  }
+});
+
 test('8. a patch that leaves the workspace, touches .git or changes modes and renames is refused', async t => {
   const f = await fixture(t);
   const before = await treeState(f.source);

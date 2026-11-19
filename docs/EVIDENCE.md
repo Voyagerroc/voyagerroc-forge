@@ -16,7 +16,7 @@ Everything else in the bundle is **recorded, not verifiable**: who approved the 
 
 ## Fields
 
-One JSON document. Keys are sorted at every depth, indentation is two spaces, the encoding is UTF-8 and the file ends with one newline. Array order is kept. Exporting the same run twice therefore gives byte-identical files. Keys are compared by UTF-16 code units, which is the order of JavaScript's default sort.
+One JSON document. Keys are sorted at every depth, indentation is two spaces, the encoding is UTF-8 and the file ends with one newline. Array order is kept. Exporting the same run twice therefore gives byte-identical files, as long as the database does not change in between: the event list is read when the bundle is exported, so a later event for the same task changes the next export. Keys are compared by UTF-16 code units, which is the order of JavaScript's default sort.
 
 | Field | Meaning |
 | --- | --- |
@@ -188,11 +188,11 @@ Exit code `0` only when every verifiable claim matches, `1` on any mismatch, `2`
 
 ## What verification does
 
-It reuses the runner's machinery instead of a second copy: a disposable copy of the pinned commit made with the same snapshot code and limits, no execution of repository code, and the same static checks (exact replacement, conflict markers, JSON validity, JavaScript syntax with `node --check`, whitespace). It reads the repository given with `--repo` only through `git ls-tree`, `git cat-file` and `git rev-parse`, and never writes to it. The temporary copy is removed afterwards.
+It reuses the runner's machinery instead of a second copy: a disposable copy of the pinned commit made with the same snapshot code and limits, no execution of repository code, and the same static checks (exact replacement, conflict markers, JSON validity, JavaScript syntax with `node --check`, whitespace). It reads the repository given with `--repo` only through `git ls-tree`, `git cat-file` and `git rev-parse`, and never writes to it. The temporary copy is removed afterwards. One exception is outside the verifier's control: in a partial (promisor) clone, Git itself may fetch a missing object into that repository when `git cat-file` asks for it. Use a full clone if the repository must stay untouched.
 
 Before Git sees the patch, the verifier refuses it when a diff header does not name one path on both sides, when a path is rejected by the edit path rules (for example `.git`, `..`, an absolute path or a backslash), when it renames, copies, deletes or changes modes, adds a symbolic link or a binary file, touches more than 20 files, or when the headers and the files Git says it changes disagree. A refused bundle exits with `2` and nothing is applied.
 
-Checks are re-run by name. A recomputed check missing from the bundle, a recorded check that names a file the patch does not change, a different status, and a different content hash for an `edit:` check are all mismatches. A run recorded as `passed` that records a failed check is inconsistent and is a mismatch too.
+Checks are re-run by name. A recomputed check missing from the bundle, a recorded check that names a file the patch does not change, a different status, and a different content hash for an `edit:` check are all mismatches. A run recorded as `passed` that records a failed check is inconsistent and is a mismatch too. Only the detail text of `edit:` checks is compared; for `syntax:` and `diff-whitespace` the status is compared and the detail text is not. The first row, `bundle format`, only states what was read and counts as a match, so the matched count includes it. The verifier checks that `notRun` lists `project tests` and that `limits` is a list of strings, but it does not compare their text. A run status of `cancelled`, `timed_out` or `interrupted` is not cross-checked against the patch and checks.
 
 ## What it proves and what it does not
 
@@ -208,6 +208,8 @@ Who could lie, and which lies verification catches:
 - **Someone claims another base commit.** The patch usually fails to apply there, or the commit is missing from the repository: caught.
 - **Someone claims approvals, times or an intent that never existed.** Not caught. These are reported as recorded, not verifiable.
 - **A hostile patch tries to write outside the workspace or into `.git`.** Refused before anything is applied.
+- **Someone puts terminal escape sequences or line breaks into a text field, for example the repository name, the tool version or a check name, to hide a MISMATCH row or to forge a MATCH row in the table.** The table shows every control character (C0, DEL, C1), line and paragraph separator and bidirectional formatting character as a backslash-u escape with four hex digits, so one claim is always one line and nothing the bundle says can change how the terminal draws it. `--json` is escaped by JSON itself. Printable text from the bundle is still shown as it is, and the table lets a bundle author put misleading words on a line; read the `RESULT` column, not the detail text.
+- **Someone repeats a JSON key.** The last value wins, as in `JSON.parse`; the verifier does not reject duplicate keys. Every value it reads is still checked against the repository, so a repeated key cannot make a false patch or check match.
 - **The Forge server or the repository is itself compromised.** Out of scope. The verifier trusts the Git object store it is given.
 
 Signing, attestations, CI integration and importing a patch that Forge did not produce are future work.
