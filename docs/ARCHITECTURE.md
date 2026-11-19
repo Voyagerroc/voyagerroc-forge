@@ -11,6 +11,7 @@ Forge is a local application with framework building blocks. It does not yet exp
 | `runner.mjs` | Source pinning, snapshots, fixed-worker lifecycle and evidence |
 | `runner-process.mjs` | Minimal process environment, limits and descendant cancellation |
 | `edit-worker.mjs` | Explicit file replacements and text/JSON/conflict checks |
+| `evidence.mjs` | Portable evidence bundle for a finished run and its independent verifier ([EVIDENCE.md](EVIDENCE.md)) |
 | `public/` | Dependency-free local web UI |
 
 ## Separate the meanings of approval

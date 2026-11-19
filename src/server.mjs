@@ -8,6 +8,7 @@ import { GitHubAdapter, verifySignature } from './github.mjs';
 import { adapters, buildPlan } from './adapters.mjs';
 import { Runner } from './runner.mjs';
 import { MAX_REQUEST_BYTES } from './edit-worker.mjs';
+import { exportEvidence } from './evidence.mjs';
 
 const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
@@ -88,6 +89,13 @@ export function createApp({ store, github = new GitHubAdapter(), webhookSecret =
       if (req.method === 'POST' && runStart) {
         if (!runner) throw fail('Runner is not configured', 503);
         return send(202, runner.start(runStart[1], json(await body(req))));
+      }
+      const evidenceRoute = url.pathname.match(/^\/api\/runs\/([a-f0-9-]{36})\/evidence$/);
+      if (evidenceRoute && req.method === 'GET') {
+        const text = exportEvidence(store, evidenceRoute[1]);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8',
+          'Content-Disposition': `attachment; filename="forge-evidence-${evidenceRoute[1]}.json"` });
+        return res.end(text);
       }
       const runRoute = url.pathname.match(/^\/api\/runs\/([a-f0-9-]{36})(\/cancel)?$/);
       if (runRoute && req.method === 'GET' && !runRoute[2]) {
