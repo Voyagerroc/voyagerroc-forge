@@ -154,7 +154,11 @@ test('mutations without the local client header, with another content type or ov
   assert.equal((await post({ 'Content-Type': 'application/json' }, input)).status, 403);
   assert.equal((await post({ ...valid, 'X-Forge-Client': 'other' }, input)).status, 403);
   for (const type of ['text/plain', 'application/x-www-form-urlencoded']) assert.equal((await post({ ...valid, 'Content-Type': type }, input)).status, 415, type);
-  assert.equal((await post({ 'X-Forge-Client': 'local-ui' }, input)).status, 415);
+  const bare = await new Promise((resolve, reject) => {
+    const request = httpRequest(origin + '/api/projects', { method: 'POST', headers: { Origin: origin, 'X-Forge-Client': 'local-ui' } }, response => { response.resume(); response.on('end', () => resolve(response)); });
+    request.on('error', reject); request.end(input);
+  });
+  assert.equal(bare.statusCode, 415);
   const large = await post(valid, JSON.stringify({ repository: 'a'.repeat(1024 * 1024) }));
   assert.equal(large.status, 413); assert.deepEqual(await large.json(), { error: 'Request is too large' });
   assert.equal(store.snapshot().projects.length, 0);
