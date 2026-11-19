@@ -1,45 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-
-const source = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+import { loadApp, all } from './helpers/fake-dom.mjs';
 
 function fixture() {
   const clicks = [], blobs = [], revoked = [], timers = [];
-  class Element {
-    constructor(tag) { this.tagName = tag; this.children = []; }
-    append(...children) {
-      children.forEach(child => { child.parentElement = this; this.children.push(child); });
-    }
-    replaceChildren(...children) { this.children.forEach(child => child.parentElement = null); this.children = []; this.append(...children); }
-    before(child) { child.parentElement = this.parentElement; this.parentElement.children.splice(this.parentElement.children.indexOf(this), 0, child); }
-    remove() { this.parentElement.children.splice(this.parentElement.children.indexOf(this), 1); this.parentElement = null; }
-    click() { clicks.push({ href: this.href, filename: this.download, attached: this.parentElement === document.body }); }
-    showModal() { this.open = true; }
-  }
-  const elements = new Map();
-  const document = {
-    body: new Element('body'), activeElement: null,
-    createElement: tag => new Element(tag),
-    querySelector: selector => {
-      if (!elements.has(selector)) elements.set(selector, new Element('div'));
-      return elements.get(selector);
-    },
-  };
-  const context = vm.createContext({
-    document, Blob,
+  const { context, document } = loadApp({ extra: {
+    Blob,
     URL: { createObjectURL: blob => { blobs.push(blob); return 'blob:local-patch'; }, revokeObjectURL: url => revoked.push(url) },
-    setTimeout: (callback, delay) => timers.push({ callback, delay }), setInterval: () => {},
-    // Keep startup refresh pending; each test supplies only its evidence response.
-    fetch: () => new Promise(() => {}),
-  });
-  vm.runInContext(source, context);
+    setTimeout: (callback, delay) => timers.push({ callback, delay }),
+  } });
+  // Downloads create a temporary link; record its click instead of navigating.
+  const createElement = document.createElement;
+  document.createElement = tag => {
+    const el = createElement(tag);
+    if (tag === 'a') el.click = function () { clicks.push({ href: this.href, filename: this.download, attached: this.parentElement === document.body }); };
+    return el;
+  };
+  const project = { id: 'p', full_name: 'local/demo', default_branch: 'main', source_kind: 'local' };
+  const task = { id: 't', project_id: 'p', title: 'Task', intent: 'Do it', status: 'approved', adapter: 'github', version: 3, events: [] };
+  // Show the evidence of one run: state from /api/state, patch from /api/runs/<id>.
   async function show(result) {
-    context.fetch = async () => ({ ok: true, json: async () => ({ checks: [], ...result }) });
+    const run = { id: result.id, task_id: 't', status: result.status, base_sha: 'a'.repeat(40), patch_sha256: 'b'.repeat(64), checks: [], summary: '', has_patch: Boolean(result.patch), created_at: '2026-11-19T10:00:00.000Z', finished_at: result.status === 'running' || result.status === 'preparing' ? null : '2026-11-19T10:00:01.000Z' };
+    context.payload = { projects: [project], tasks: [task], runs: [run], adapters: [], integration: { github: 'public-read', webhook: false }, pullRequests: [], events: [], runner: null };
+    vm.runInContext('state = payload', context);
+    context.fetch = async () => ({ ok: true, json: async () => ({ checks: [], task_id: 't', ...result }) });
     await context.showResult(result.id);
-    return document.querySelector('#run-detail').children.find(el => el.tagName === 'button');
+    return all(document.querySelector('#record'), el => el.tagName === 'button' && el.textContent === 'Download patch')[0];
   }
   return { context, document, show, clicks, blobs, revoked, timers };
 }

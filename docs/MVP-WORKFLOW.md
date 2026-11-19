@@ -42,7 +42,7 @@ Data model: Project (GitHub numeric identity, canonical name, branch, latest obs
 | in_review | Specification awaiting local human decision | Approve plan |
 | approved | Specification approved; execution not started | Future runner integration |
 
-Scion adapters may be selected to explore a plan, but remain labeled `planned`. No adapter selection grants an unimplemented capability. Approval must not later be silently repurposed as permission to publish; add an explicit publication approval referencing the verified patch SHA.
+Scion adapters stay labeled `planned`: the API still reports them with that status, and the task dialog offers only adapters that work. No adapter selection grants an unimplemented capability. Approval must not later be silently repurposed as permission to publish; add an explicit publication approval referencing the verified patch SHA.
 
 ## Next implementation milestones
 
