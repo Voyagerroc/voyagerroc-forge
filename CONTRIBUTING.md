@@ -1,49 +1,67 @@
 # Contributing to Voyagerroc Forge
 
-Welcome. Forge is an early framework starter: small, inspectable changes are especially valuable. A reproduction, documentation improvement, design review, fixture or code change is welcome.
+Forge is about one idea: a change that carries its own proof. Small, careful pull requests that keep that idea honest are the most useful contribution. A reproduction, a documentation fix, a test, a fixture or a code change are all welcome.
 
 ## Get started
 
 1. Fork and clone the repository. Install Node.js 24.19+ and Git.
-2. Run `npm run check` for the offline suite.
-3. Run `npm run demo:runner` to try the real local fixture and evidence UI.
-4. Check the [labels](https://github.com/Voyagerroc/voyagerroc-forge/labels) and the open issues: starter issues carry the `good first issue` label. If none is open, or before a large architectural change, open a proposal.
+2. Run `npm run check`. It checks local documentation links and syntax and runs the offline test suite.
+3. Run `npm run demo:runner` and follow the [two-minute walkthrough](README.md#try-it-in-two-minutes) to see the change record and the evidence bundle.
 
-No npm install or cloud/model account is needed. Optional browser checks: [DEVELOPMENT.md](docs/DEVELOPMENT.md).
+No npm install, cloud account or model account is needed. Optional browser checks are described in [DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
-## Send a focused pull request
+## What makes a pull request acceptable
 
-- Branch from `main`; address one problem.
-- Describe a concrete trigger and resulting behavior. Link the issue if one exists.
-- Run `npm run check`. Behavioral fixes should include a regression check that catches the bug; UI changes should include a screenshot and keyboard/mobile notes.
-- Update docs when changing capability flags, configuration or behavior.
-- Show actual evidence. Do not call static checks project tests, mock results live integrations, or planned adapters implemented.
-- Keep secrets, databases, private source and machine-specific paths out of commits/reports.
+- **One problem, a small diff.** Say what triggers the problem and what behaviour changes. Link the issue if there is one. No unrelated changes, reformatting or renames.
+- **A failing test first, where a rule changes.** Add the test, show that it fails without your change, then make it pass. A bug fix needs a regression test that catches the bug.
+- **The commands you ran and their real results in the description.** Paste the output or its summary: the command, the pass and fail counts, the Node.js version and the operating system. For example: `npm run check`, 115 tests, 0 failed, Node.js 24.19.0, Windows 11.
+- **What is not covered.** Name what you did not test or could not test. A mocked result must be called mocked. Do not call static checks project tests, and do not call a planned feature implemented.
+- **Documentation and screenshots follow behaviour.** If you change a user-visible behaviour, a configuration option or a limit, update the documentation. For interface changes, include a screenshot from the running application and notes on keyboard use and a 390 px width.
+- **No secrets, databases, private source or machine-specific paths** in commits or descriptions.
 
-Draft PRs are welcome. No guaranteed response time or automatic merge is promised.
+Draft pull requests are welcome. Use the pull request template.
+
+## What the maintainer commits to
+
+- A first answer to an issue or pull request within 72 hours.
+- A review that reads the diff and runs the tests before anything is merged. A pull request is merged when its diff is understood and the tests pass, not before.
+- The project never asks for stars or any other favour in return for a review or a merge, and a review does not depend on one.
+
+## Pick an issue, or ask first
+
+Look at the [labels](https://github.com/Voyagerroc/voyagerroc-forge/labels) and the open issues:
+
+- `good first issue`: a bounded entry point with scope and acceptance criteria.
+- `help wanted`: the maintainer welcomes implementation or design help.
+- `bug`, `enhancement`, `documentation`, `accessibility`: the kind of work.
+- `area: runner`, `area: adapters`, `area: ui`: where in the code it lives.
+
+Small fixes need no reservation. For anything large (a new adapter, a change to the evidence format, anything touching how code is run), open an issue first with the smallest useful experiment and how you would validate it, and wait for an answer before writing the patch. See the [roadmap](ROADMAP.md) for the direction and for what is not planned.
 
 ## Design boundaries
 
 - Preserve upstream state unless a designed publication step authorizes a write.
 - Separate intent, plan approval, execution evidence and publication approval.
-- Repository files are **data** in this backend. Agents/project-test commands require OS isolation, resource/network controls, cancellation and provenance before enablement.
-- Use structured process arguments. Treat source content and webhooks as untrusted.
-- Prefer Node built-ins; justify new dependencies and their maintenance/license cost.
-- Keep hosting, tenant identity and secrets explicit; this prototype is local and single-user.
+- Repository files are **data** in this backend. Project tests, dependency installation or any execution of repository code require an OS-isolated backend with resource and network controls, cancellation and provenance first ([issue #6](https://github.com/Voyagerroc/voyagerroc-forge/issues/6)).
+- Use structured process arguments. Treat source content, webhooks and evidence bundles as untrusted.
+- A statement in the interface, the documentation or an evidence bundle must be something the code can back today.
+- Prefer Node built-ins; justify any new dependency and its maintenance and license cost.
+- Keep hosting, identity and secrets explicit; Forge is local and single-user.
 
 ## Entry points
 
 | Area | Start here |
 | --- | --- |
 | HTTP API | `src/server.mjs` |
-| Workflow/evidence storage | `src/store.mjs` |
+| Workflow and evidence storage | `src/store.mjs` |
 | Snapshot and lifecycle | `src/runner.mjs` |
 | Process supervision | `src/runner-process.mjs` |
 | Scoped edits | `src/edit-worker.mjs` |
-| GitHub API/auth | `src/github.mjs` |
+| Evidence bundle and verifier | `src/evidence.mjs`, `scripts/evidence.mjs` |
+| GitHub API and auth | `src/github.mjs` |
 | UI | `public/app.js`, `public/index.html`, CSS files |
-| Regression tests | `test/forge.test.mjs`, `test/runner.test.mjs` |
+| Tests | `test/` (`forge.test.mjs`, `runner.test.mjs`, `evidence.test.mjs`, `record-view.test.mjs`) |
 
-Use issues for bounded bugs/proposals; report vulnerabilities privately through [SECURITY.md](SECURITY.md). Follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+Use issues for bounded bugs and proposals. Report vulnerabilities privately through [SECURITY.md](SECURITY.md). Follow the [code of conduct](CODE_OF_CONDUCT.md).
 
-Contributions are under the repository's MIT license. No CLA or DCO sign-off is currently required. Only contribute code you have permission to license.
+Contributions are under the repository's MIT license. No CLA or DCO sign-off is required. Only contribute code you have permission to license.

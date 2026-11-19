@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.3.0 — A change that carries its own proof
+
+### Added
+
+- Each task is shown as one change record instead of a workspace board: a
+  summary of the source commit, patch hash, checks and approval time, the
+  recorded events newest first, and the pinned commit, the diff with line
+  numbers, the check results and the approvals as sections. A failed run stays
+  in the record with its message. The record states in plain words that the
+  hashes are not signed and that project tests are not run. Light and dark
+  themes follow the system setting, with a three-state control (#36).
+- A portable evidence bundle for every finished run: an unsigned in-toto
+  Statement v1 with a Forge predicate, exported with `npm run evidence:export`
+  or `GET /api/runs/<run id>/evidence` (#35).
+- Independent verification with `npm run evidence:verify`: it re-applies the
+  patch to the pinned commit in a disposable copy and re-runs the static checks.
+  It reports each claim as `MATCH`, `MISMATCH` or `RECORDED NOT VERIFIABLE`,
+  refuses bundles that are not in canonical form or contradict themselves, and
+  exits with `0`, `1` or `2` (#35). See [docs/EVIDENCE.md](docs/EVIDENCE.md).
+- Each task in the `GET /api/state` response lists its own recorded events,
+  oldest first (#34).
+
+### Changed
+
+- The run dialog explains invalid edits next to the field. A cancelled or
+  interrupted run tells you what to do next instead of how to fix its edits
+  (#36).
+- The snapshot, per-file checks, syntax check and whitespace check are shared
+  between the runner and the verifier instead of copied (#35).
+- README, ROADMAP, CONTRIBUTING and the development guide describe the record
+  interface and the evidence bundle, with new screenshots taken from the
+  running application.
+
+### Not included
+
+The bundle is not signed: it proves consistency, not origin. Forge still
+applies exact edits that you provide, runs static checks only, and runs
+locally for one user. The isolated execution backend in #6 is not implemented.
+
 ## 0.2.2 — Reliability fixes and regression tests
 
 ### Fixed

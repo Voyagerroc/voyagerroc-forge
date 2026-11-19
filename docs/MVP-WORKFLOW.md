@@ -1,10 +1,10 @@
 # MVP workflow and delivery plan
 
-Current milestone: v0.2 now implements disposable pinned source workspaces, explicit file edits, real static checks, persisted diffs and cancellation. The plan approval stages below remain distinct from execution results. See [Runner delivery and boundaries](RUNNER-2026-10-28.md). The original v0.1 validation notes below are historical.
+Current milestone: v0.3. Each change is shown as one record with its evidence, and a finished run can be exported as a portable bundle and verified independently ([EVIDENCE.md](EVIDENCE.md)). v0.2 implemented disposable pinned source workspaces, explicit file edits, real static checks, persisted diffs and cancellation. The plan approval stages below remain distinct from execution results. See [Runner delivery and boundaries](RUNNER-2026-10-28.md). The original v0.1 validation notes below are historical.
 
 ## Product slice
 
-Primary user: a developer coordinating coding agents while keeping GitHub as the source of truth. First acceptance journey: connect a repository → describe intent → inspect workflow plan → request review → approve the plan → inspect an auditable activity record. Real execution and publication are a second slice.
+Primary user: a developer who needs to trust a change without trusting whoever produced it, while keeping GitHub as the source of truth. First acceptance journey: connect a repository → describe intent → inspect workflow plan → request review → approve the plan → inspect an auditable activity record. Real execution and publication are a second slice.
 
 ```mermaid
 flowchart LR
