@@ -121,6 +121,10 @@ The offline check command uses Node's built-in test runner; no package installat
 
 Configuration, GitHub App setup, webhook boundaries and source mappings: [CONFIGURATION.md](docs/CONFIGURATION.md). `.env.example` is a reference; `.env` is not loaded automatically.
 
-## License and attribution
+## License
 
-[MIT](LICENSE). Created by [Erol Taşcı](https://github.com/Voyagerroc) at [Voyagerroc Technologies](https://voyagerroctechnologies.com/).
+[MIT](LICENSE).
+
+---
+
+Made by Erol Tasci at [Voyagerroc Technologies](https://voyagerroctechnologies.com/) · [voyagerroctechnologies.com](https://voyagerroctechnologies.com/)
