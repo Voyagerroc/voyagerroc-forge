@@ -156,6 +156,21 @@ test('the signed-sentence check catches a stylesheet rule that hides it', () => 
   assert.equal(hidingRules(`${css}\n.something-else { display: none; }`, holder).length, 0);
 });
 
+test('the runs list stacks below 1200 px, where a two-column list leaves the run line almost no width', () => {
+  const rules = cssRules(readPublic('style.css'));
+  const columnsOf = rule => /grid-template-columns\s*:\s*([^;]+)/.exec(rule.declarations)?.[1].trim();
+  const ownRules = rules.filter(rule => rule.selectors.some(sel => sel.trim() === '.runs-list') && columnsOf(rule));
+  const wide = ownRules.find(rule => rule.media === '');
+  assert.match(columnsOf(wide), /^200px /, 'the wide layout keeps a 200 px heading column');
+  const stacked = ownRules.filter(rule => rule.media && columnsOf(rule) === 'minmax(0, 1fr)');
+  assert.ok(stacked.length >= 1, 'a media rule stacks the list');
+  const widest = Math.max(...stacked.map(rule => Number(/max-width:\s*(\d+)px/.exec(rule.media)?.[1] ?? 0)));
+  assert.ok(widest >= 1200, `the list stacks up to ${widest}px, measured breakpoint is 1200px`);
+  // The heading's own divider must follow the same breakpoint.
+  const heading = rules.filter(rule => rule.selectors.some(sel => sel.trim() === '.runs-list h2') && /border-right\s*:\s*0/.test(rule.declarations));
+  assert.ok(heading.some(rule => Number(/max-width:\s*(\d+)px/.exec(rule.media)?.[1] ?? 0) >= 1200));
+});
+
 test('a field that is not recorded shows not available', () => {
   const data = state(); data.tasks[0].events = []; data.runs = [];
   const f = open(data);
