@@ -6,6 +6,7 @@ import { openStore } from './store.mjs';
 import { GitHubAdapter, verifySignature } from './github.mjs';
 import { adapters, buildPlan } from './adapters.mjs';
 import { Runner } from './runner.mjs';
+import { MAX_REQUEST_BYTES } from './edit-worker.mjs';
 
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
 const fail = (message, status = 400) => Object.assign(new Error(message), { status });
@@ -17,7 +18,7 @@ async function body(req) {
   const chunks = []; let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > 1024 * 1024) throw fail('Request is too large', 413);
+    if (size > MAX_REQUEST_BYTES) throw fail('Request is too large', 413);
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
