@@ -38,15 +38,19 @@ function lockDatabase(filename) {
   };
 }
 
-export function openStore(filename) {
+// readOnly opens an existing database without the server lock and without creating tables or migrating the schema,
+// so evidence can be exported while a server is running on the same file. It cannot write to the database, but SQLite may leave -shm and -wal side files next to it.
+export function openStore(filename, { readOnly = false } = {}) {
+  if (readOnly) return openLockedStore(filename, () => {}, true);
   let release = () => {};
   if (filename !== ':memory:') { mkdirSync(dirname(filename), { recursive: true }); release = lockDatabase(filename); }
-  try { return openLockedStore(filename, release); } catch (error) { release(); throw error; }
+  try { return openLockedStore(filename, release, false); } catch (error) { release(); throw error; }
 }
 
-function openLockedStore(filename, release) {
-  const db = new DatabaseSync(filename);
-  db.exec(`PRAGMA journal_mode=WAL;
+function openLockedStore(filename, release, readOnly) {
+  const db = new DatabaseSync(filename, { readOnly });
+  if (readOnly) db.exec('PRAGMA foreign_keys=ON;');
+  else db.exec(`PRAGMA journal_mode=WAL;
     PRAGMA foreign_keys=ON;
     CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY, full_name TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -79,7 +83,7 @@ function openLockedStore(filename, release) {
     );
     CREATE UNIQUE INDEX IF NOT EXISTS runs_one_active ON runs(task_id)
       WHERE status IN ('preparing','running');`);
-  if (!db.prepare('PRAGMA table_info(projects)').all().some(c => c.name === 'source_kind'))
+  if (!readOnly && !db.prepare('PRAGMA table_info(projects)').all().some(c => c.name === 'source_kind'))
     db.exec("ALTER TABLE projects ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'github'");
   const event = (projectId, kind, detail) => db.prepare(
     'INSERT INTO events(project_id,kind,detail,created_at) VALUES (?,?,?,?)'
@@ -105,6 +109,13 @@ function openLockedStore(filename, release) {
   ).all(taskId);
   return {
     close() { try { db.close(); } finally { release(); } }, getProject, getTask, getRun,
+    // Events that name this task, oldest first. Run events carry the run id as well as the task id.
+    taskEvents(taskId) {
+      const task = getTask(taskId);
+      if (!task) return [];
+      return db.prepare('SELECT kind,detail,created_at FROM events WHERE project_id=? ORDER BY id').all(task.project_id)
+        .map(row => ({ ...row, detail: JSON.parse(row.detail) })).filter(row => row.detail?.taskId === taskId);
+    },
     snapshot() {
       return {
         projects: db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all(),

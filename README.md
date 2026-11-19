@@ -117,6 +117,8 @@ npm run dev
 
 The offline check command uses Node's built-in test runner; no package installation is needed. The [read-only CI workflow](.github/workflows/ci.yml) runs these checks on clean Ubuntu and Windows runners with Node.js 24.19.0. Check the linked workflow result for the revision being reviewed; a configured workflow is not itself a passing result. Optional browser acceptance scripts require Playwright; see [development and verification](docs/DEVELOPMENT.md).
 
+A finished run can be exported as a portable evidence bundle and re-checked by someone who does not trust its producer: see [evidence bundle and verification](docs/EVIDENCE.md).
+
 Configuration, GitHub App setup, webhook boundaries and source mappings: [CONFIGURATION.md](docs/CONFIGURATION.md). `.env.example` is a reference; `.env` is not loaded automatically.
 
 ## License

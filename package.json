@@ -13,6 +13,8 @@
     "start": "node src/server.mjs",
     "dev": "node --watch src/server.mjs",
     "demo:runner": "node scripts/demo-runner.mjs",
+    "evidence:export": "node scripts/evidence.mjs export",
+    "evidence:verify": "node scripts/evidence.mjs verify",
     "test": "node --test",
     "check": "node --check src/server.mjs && node --check public/app.js && node scripts/check-doc-links.mjs && node --test"
   }

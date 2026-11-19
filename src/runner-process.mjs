@@ -12,9 +12,10 @@ export function processEnvironment() {
   };
 }
 
-export function command(executable, args, { cwd, signal, input, maxBytes = 2 * 1024 * 1024, timeout = 30000 } = {}) {
+// `env` adds variables on top of the fixed environment; callers use it to tighten Git, never to loosen it.
+export function command(executable, args, { cwd, signal, input, env, maxBytes = 2 * 1024 * 1024, timeout = 30000 } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(executable, args, { cwd, env: processEnvironment(), shell: false, windowsHide: true, detached: process.platform !== 'win32',
+    const child = spawn(executable, args, { cwd, env: { ...processEnvironment(), ...env }, shell: false, windowsHide: true, detached: process.platform !== 'win32',
       stdio: ['pipe','pipe','pipe'] });
     const stdout = []; const stderr = []; let size = 0; let reason; let killing;
     const stop = error => {
