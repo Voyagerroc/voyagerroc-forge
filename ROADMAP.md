@@ -20,7 +20,7 @@ A contribution map, not a delivery-date promise.
 - [x] Keyboard focus restoration in dialogs
 - [x] Case-colliding source directory regression fixtures
 
-Browse [good first issues](https://github.com/Voyagerroc/voyagerroc-forge/contribute). Comment before a large patch to avoid duplicate work; small fixes need no reservation.
+Check the [labels](https://github.com/Voyagerroc/voyagerroc-forge/labels) and the open issues for starter work (the `good first issue` label); if none is open, propose a small one in an issue first. Comment before a large patch to avoid duplicate work; small fixes need no reservation.
 
 ## Isolated execution
 

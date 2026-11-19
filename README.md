@@ -6,18 +6,19 @@
 
 An experimental, GitHub-connected framework starter for reviewable agent workflows.
 
-[![Offline checks](https://github.com/Voyagerroc/voyagerroc-forge/actions/workflows/ci.yml/badge.svg)](https://github.com/Voyagerroc/voyagerroc-forge/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-24.19%2B-43853d.svg)](https://nodejs.org/)
-[![Status](https://img.shields.io/badge/status-experimental-orange.svg)](#project-status)
+**Status:** v0.2.1 pre-release · MIT<br>experimental · single user · loopback only
+
+[![CI status](https://github.com/Voyagerroc/voyagerroc-forge/actions/workflows/ci.yml/badge.svg)](https://github.com/Voyagerroc/voyagerroc-forge/actions/workflows/ci.yml)
 
 **No npm runtime dependencies · Local-first · GitHub stays the source of truth**
 
-[Try the demo](#try-it-in-two-minutes) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Find your first contribution](https://github.com/Voyagerroc/voyagerroc-forge/contribute)
+[Try the demo](#try-it-in-two-minutes) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [Contribute](CONTRIBUTING.md)
 
 </div>
 
 ![Forge workspace with a real local Git task and runner results](docs/assets/forge-workspace.png)
+
+*The workspace with the local demo repository. The runner applies the file edits you provide; it does not generate code with an AI model.*
 
 ## Why Forge?
 
@@ -101,7 +102,7 @@ The scoped runner accepts 1–20 edits and snapshots of up to 200 regular tracke
 We welcome the first contributors: developers interested in GitHub tooling, Node.js, source control, execution isolation, and review UX.
 
 - **Try the demo and report friction.** A minimal reproduction is useful even without a patch.
-- **Pick a [good first issue](https://github.com/Voyagerroc/voyagerroc-forge/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22).** Starter issues include scope and acceptance criteria.
+- **Check the [labels](https://github.com/Voyagerroc/voyagerroc-forge/labels) and the open issues.** Starter issues carry the `good first issue` label and include scope and acceptance criteria. If none is open, propose a small one in an issue first.
 - **Propose an adapter.** Start with capabilities, failure modes and fixture evidence before a large implementation.
 - **Send a focused PR.** Explain the trigger, resulting behavior and validation. Draft PRs are welcome.
 
@@ -118,6 +119,10 @@ The offline check command uses Node's built-in test runner; no package installat
 
 Configuration, GitHub App setup, webhook boundaries and source mappings: [CONFIGURATION.md](docs/CONFIGURATION.md). `.env.example` is a reference; `.env` is not loaded automatically.
 
-## License and attribution
+## License
 
-[MIT](LICENSE). Created by [Erol Taşcı](https://github.com/Voyagerroc) at [Voyagerroc Technologies](https://voyagerroctechnologies.com/).
+[MIT](LICENSE).
+
+---
+
+Made by Erol Tasci at [Voyagerroc Technologies](https://voyagerroctechnologies.com/) · [voyagerroctechnologies.com](https://voyagerroctechnologies.com/)
