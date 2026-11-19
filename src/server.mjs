@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
@@ -8,6 +9,7 @@ import { adapters, buildPlan } from './adapters.mjs';
 import { Runner } from './runner.mjs';
 import { MAX_REQUEST_BYTES } from './edit-worker.mjs';
 
+const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
 const fail = (message, status = 400) => Object.assign(new Error(message), { status });
 const field = (value, name, max) => {
@@ -63,7 +65,7 @@ export function createApp({ store, github = new GitHubAdapter(), webhookSecret =
           throw fail('Local UI origin and client header required', 403);
         if (!req.headers['content-type']?.startsWith('application/json')) throw fail('JSON content type required', 415);
       }
-      if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, mode: 'local-mvp', version: '0.2.0' });
+      if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, mode: 'local-mvp', version });
       if (req.method === 'GET' && url.pathname === '/api/state') return send(200, {
         ...store.snapshot(), adapters,
         integration: { github: github.configured ? 'app-configured' : 'public-read', webhook: Boolean(webhookSecret), execution: runner ? 'scoped-edits' : 'disabled' },
@@ -115,6 +117,9 @@ export function createApp({ store, github = new GitHubAdapter(), webhookSecret =
       }
       send(404, { error: 'Not found' });
     } catch (error) {
+      // Unexpected errors only: method, path without query string, and stack.
+      // Never the body, headers or query, which can carry tokens.
+      if (!error.status) console.error(`${req.method} ${String(req.url).split('?')[0]}\n${error.stack ?? error}`);
       if (!res.headersSent) send(error.status ?? 500, { error: error.status ? error.message : 'Internal error. Check server configuration.' });
       else res.end();
     }

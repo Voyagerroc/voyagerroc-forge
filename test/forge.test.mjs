@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac, generateKeyPairSync, createVerify } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
@@ -192,4 +192,36 @@ test('GitHub App creates a scoped installation token, signs JWT and caches it', 
     assert.equal(options.headers.Authorization, 'Bearer test-token-variable-length'); return Response.json(repo);
   }});
   await github.repository('example/project'); await github.repository('example/project'); assert.equal(minted, 1);
+});
+
+test('health reports the version in package.json', async t => {
+  const { origin } = await fixture(t);
+  const expected = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+  const response = await fetch(origin + '/api/health');
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).version, expected);
+});
+
+test('an unexpected error is logged with method and path but not the request body, and answered with 500', async t => {
+  const { store, call } = await fixture(t);
+  store.connect = () => { throw new Error('forced store failure'); };
+  const logged = [];
+  t.mock.method(console, 'error', (...args) => { logged.push(args.join(' ')); });
+  const marker = 'body-marker-do-not-log';
+  const { status, data } = await call('/api/projects?q=query-marker', { repository: 'example/project', note: marker });
+  assert.equal(status, 500);
+  assert.equal(data.error, 'Internal error. Check server configuration.');
+  const output = logged.join('\n');
+  assert.match(output, /POST \/api\/projects/);
+  assert.match(output, /forced store failure/);
+  assert.doesNotMatch(output, new RegExp(marker));
+  assert.doesNotMatch(output, /query-marker/);
+});
+
+test('expected client errors are not written to the error log', async t => {
+  const { call } = await fixture(t);
+  const logged = [];
+  t.mock.method(console, 'error', (...args) => { logged.push(args.join(' ')); });
+  assert.equal((await call('/api/tasks', { adapter: 'nope' })).status, 400);
+  assert.deepEqual(logged, []);
 });
