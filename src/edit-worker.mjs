@@ -42,6 +42,19 @@ export function validateEdits(edits) {
   return edits.map(({ path, before, after }) => ({ path, before, after }));
 }
 
+// The per-file checks of the worker, exported so that an independent verifier recomputes them with this
+// exact code instead of a second copy. Order matters for the recorded evidence: edit, conflicts, json.
+export function contentChecks(path, content) {
+  const checks = [{ name: `edit:${path}`, status: 'passed', detail: `sha256:${createHash('sha256').update(content).digest('hex')}` }];
+  if (/^(<{7}|={7}|>{7})(?: |$)/m.test(content)) checks.push({ name: `conflicts:${path}`, status: 'failed', detail: 'Unresolved conflict marker' });
+  else checks.push({ name: `conflicts:${path}`, status: 'passed', detail: 'No conflict markers' });
+  if (path.endsWith('.json')) {
+    try { JSON.parse(content); checks.push({ name: `json:${path}`, status: 'passed', detail: 'Valid JSON' }); }
+    catch { checks.push({ name: `json:${path}`, status: 'failed', detail: 'Invalid JSON' }); }
+  }
+  return checks;
+}
+
 export function applyEdits(root, edits) {
   const checks = [];
   // Validate every edit before any write, so a stale replacement is atomic at this stage.
@@ -70,13 +83,7 @@ export function applyEdits(root, edits) {
   });
   for (const file of prepared) {
     mkdirSync(dirname(file.target), { recursive: true }); writeFileSync(file.target, file.content);
-    checks.push({ name: `edit:${file.path}`, status: 'passed', detail: `sha256:${createHash('sha256').update(file.content).digest('hex')}` });
-    if (/^(<{7}|={7}|>{7})(?: |$)/m.test(file.content)) checks.push({ name: `conflicts:${file.path}`, status: 'failed', detail: 'Unresolved conflict marker' });
-    else checks.push({ name: `conflicts:${file.path}`, status: 'passed', detail: 'No conflict markers' });
-    if (file.path.endsWith('.json')) {
-      try { JSON.parse(file.content); checks.push({ name: `json:${file.path}`, status: 'passed', detail: 'Valid JSON' }); }
-      catch { checks.push({ name: `json:${file.path}`, status: 'failed', detail: 'Invalid JSON' }); }
-    }
+    checks.push(...contentChecks(file.path, file.content));
   }
   return { checks, files: prepared.map(f => f.path) };
 }

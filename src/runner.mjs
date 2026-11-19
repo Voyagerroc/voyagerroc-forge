@@ -13,6 +13,64 @@ const errorWithStatus = (message, status = 400) => Object.assign(new Error(messa
 const terminal = status => ['passed','failed','cancelled','timed_out','interrupted'].includes(status);
 const diagnostic = text => text.replace(/(?:gh[pousr]_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|Bearer\s+\S+)/g, '[REDACTED]').slice(0, 3000);
 
+// Shared with the independent evidence verifier (src/evidence.mjs), so a check that is recorded and a check
+// that is recomputed are produced by the same code.
+export async function syntaxCheck(workspace, path, signal) {
+  const checked = await command(process.execPath, ['--permission', `--allow-fs-read=${workspace}`,
+    '--no-addons', '--max-old-space-size=128', '--check', join(workspace, path)], { cwd: workspace, signal });
+  return { name: `syntax:${path}`, status: checked.code === 0 ? 'passed' : 'failed',
+    detail: checked.code === 0 ? 'Node syntax check passed; source was not executed' : diagnostic(checked.stderr.toString()).replaceAll(workspace, '[workspace]') };
+}
+export async function whitespaceCheck(workspace, signal) {
+  const whitespace = await command('git', ['-c','core.hooksPath=/dev/null','-c','core.fsmonitor=false','diff','--no-ext-diff','--no-textconv','--check','HEAD'], { cwd: workspace, signal });
+  return { name: 'diff-whitespace', status: whitespace.code === 0 ? 'passed' : 'failed', detail: diagnostic(whitespace.stdout.toString()) || (whitespace.code === 0 ? 'No whitespace errors' : 'Whitespace errors found') };
+}
+export const isJavaScriptPath = path => /\.(?:js|mjs|cjs)$/.test(path);
+
+// Materialises the tracked files of one commit of `source` into <root>/workspace and commits them as the
+// pinned snapshot. Reads the source repository with ls-tree and cat-file only; never writes to it.
+// `env` is added to the Git calls that read `source`; verification uses it to forbid fetching into the source.
+export async function pinSnapshot(source, sha, root, signal, env) {
+  if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Source revision is not a valid SHA-1 commit');
+  const tree = (await git(['ls-tree','-r','-z','-l',sha], { cwd: source, signal, env })).toString('utf8').split('\0').filter(Boolean);
+  if (tree.length < SNAPSHOT_LIMITS.minFiles || tree.length > SNAPSHOT_LIMITS.maxFiles)
+    throw new Error(`Source snapshot must contain ${SNAPSHOT_LIMITS.minFiles}–${SNAPSHOT_LIMITS.maxFiles} tracked files`);
+  const entries = tree.map(line => {
+    const match = line.match(/^(\d+) (\w+) ([a-f0-9]{40})\s+(\d+|-)\t([\s\S]+)$/);
+    if (!match || !['100644','100755'].includes(match[1]) || match[2] !== 'blob') throw new Error('Symlinks and submodules are not supported');
+    const path = editPath(match[5]); const size = Number(match[4]);
+    if (!Number.isSafeInteger(size) || size > SNAPSHOT_LIMITS.maxFileBytes)
+      throw new Error(`Source file exceeds ${SNAPSHOT_LIMITS.maxFileBytes / (1024 * 1024)} MiB`);
+    return { path, size, blob: match[3] };
+  });
+  if (entries.reduce((n, e) => n + e.size, 0) > SNAPSHOT_LIMITS.maxBytes)
+    throw new Error(`Source snapshot exceeds ${SNAPSHOT_LIMITS.maxBytes / (1024 * 1024)} MiB`);
+  const paths = new Map();
+  for (const entry of entries) {
+    const parts = entry.path.split('/'); let path = '';
+    for (let i = 0; i < parts.length; i++) {
+      path += (i ? '/' : '') + parts[i];
+      const key = path.toLowerCase(); const directory = i < parts.length - 1;
+      const previous = paths.get(key);
+      // Only identically spelled directories may share a path prefix.
+      if (previous && (previous.path !== path || !previous.directory || !directory))
+        throw new Error('Case-colliding source paths are not supported');
+      paths.set(key, { path, directory });
+    }
+  }
+  const workspace = join(root, 'workspace'); await mkdir(workspace);
+  for (const entry of entries) {
+    signal.throwIfAborted();
+    const target = resolve(workspace, entry.path);
+    await mkdir(resolve(target, '..'), { recursive: true });
+    await writeFile(target, await git(['cat-file','blob',entry.blob], { cwd: source, signal, env, maxBytes: SNAPSHOT_LIMITS.maxFileBytes }));
+  }
+  await git(['init','--quiet'], { cwd: workspace, signal });
+  await git(['add','--force','--all'], { cwd: workspace, signal });
+  await git(['-c','user.name=Forge Runner','-c','user.email=runner@localhost','commit','--quiet','--no-verify','-m','Pinned source snapshot'], { cwd: workspace, signal });
+  return workspace;
+}
+
 export class Runner {
   constructor({ store, github, localRepositories = {}, timeoutMs = 60000, maxConcurrent = 1 } = {}) {
     Object.assign(this, { store, github, localRepositories, timeoutMs, maxConcurrent });
@@ -70,44 +128,7 @@ export class Runner {
       await git(['init','--quiet'], { cwd: source, signal });
       await git(['fetch','--quiet','--no-tags','--depth=1',`https://github.com/${name}.git`,sha], { cwd: source, signal });
     }
-    if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Source revision is not a valid SHA-1 commit');
-    const tree = (await git(['ls-tree','-r','-z','-l',sha], { cwd: source, signal })).toString('utf8').split('\0').filter(Boolean);
-    if (tree.length < SNAPSHOT_LIMITS.minFiles || tree.length > SNAPSHOT_LIMITS.maxFiles)
-      throw new Error(`Source snapshot must contain ${SNAPSHOT_LIMITS.minFiles}–${SNAPSHOT_LIMITS.maxFiles} tracked files`);
-    const entries = tree.map(line => {
-      const match = line.match(/^(\d+) (\w+) ([a-f0-9]{40})\s+(\d+|-)\t([\s\S]+)$/);
-      if (!match || !['100644','100755'].includes(match[1]) || match[2] !== 'blob') throw new Error('Symlinks and submodules are not supported');
-      const path = editPath(match[5]); const size = Number(match[4]);
-      if (!Number.isSafeInteger(size) || size > SNAPSHOT_LIMITS.maxFileBytes)
-        throw new Error(`Source file exceeds ${SNAPSHOT_LIMITS.maxFileBytes / (1024 * 1024)} MiB`);
-      return { path, size, blob: match[3] };
-    });
-    if (entries.reduce((n, e) => n + e.size, 0) > SNAPSHOT_LIMITS.maxBytes)
-      throw new Error(`Source snapshot exceeds ${SNAPSHOT_LIMITS.maxBytes / (1024 * 1024)} MiB`);
-    const paths = new Map();
-    for (const entry of entries) {
-      const parts = entry.path.split('/'); let path = '';
-      for (let i = 0; i < parts.length; i++) {
-        path += (i ? '/' : '') + parts[i];
-        const key = path.toLowerCase(); const directory = i < parts.length - 1;
-        const previous = paths.get(key);
-        // Only identically spelled directories may share a path prefix.
-        if (previous && (previous.path !== path || !previous.directory || !directory))
-          throw new Error('Case-colliding source paths are not supported');
-        paths.set(key, { path, directory });
-      }
-    }
-    const workspace = join(root, 'workspace'); await mkdir(workspace);
-    for (const entry of entries) {
-      signal.throwIfAborted();
-      const target = resolve(workspace, entry.path);
-      await mkdir(resolve(target, '..'), { recursive: true });
-      await writeFile(target, await git(['cat-file','blob',entry.blob], { cwd: source, signal, maxBytes: SNAPSHOT_LIMITS.maxFileBytes }));
-    }
-    await git(['init','--quiet'], { cwd: workspace, signal });
-    await git(['add','--force','--all'], { cwd: workspace, signal });
-    await git(['-c','user.name=Forge Runner','-c','user.email=runner@localhost','commit','--quiet','--no-verify','-m','Pinned source snapshot'], { cwd: workspace, signal });
-    return { workspace, sha };
+    return { workspace: await pinSnapshot(source, sha, root, signal), sha };
   }
   async execute(run, task, project, edits, job) {
     let root; let patch = ''; let checks = []; let status = 'failed'; let summary = 'Run failed';
@@ -124,16 +145,10 @@ export class Runner {
       });
       if (output.code !== 0) throw new Error(diagnostic(output.stderr.toString()) || 'Edit worker failed');
       const result = JSON.parse(output.stdout.toString('utf8')); checks = result.checks;
-      for (const path of result.files.filter(p => /\.(?:js|mjs|cjs)$/.test(p))) {
-        const checked = await command(process.execPath, ['--permission', `--allow-fs-read=${workspace}`,
-          '--no-addons', '--max-old-space-size=128', '--check', join(workspace, path)], { cwd: workspace, signal });
-        checks.push({ name: `syntax:${path}`, status: checked.code === 0 ? 'passed' : 'failed',
-          detail: checked.code === 0 ? 'Node syntax check passed; source was not executed' : diagnostic(checked.stderr.toString()).replaceAll(workspace, '[workspace]') });
-      }
+      for (const path of result.files.filter(isJavaScriptPath)) checks.push(await syntaxCheck(workspace, path, signal));
       await git(['add','--intent-to-add','--force','--all'], { cwd: workspace, signal });
       patch = (await git(['diff','--no-ext-diff','--no-textconv','--no-color','HEAD','--','.'], { cwd: workspace, signal })).toString('utf8');
-      const whitespace = await command('git', ['-c','core.hooksPath=/dev/null','-c','core.fsmonitor=false','diff','--no-ext-diff','--no-textconv','--check','HEAD'], { cwd: workspace, signal });
-      checks.push({ name: 'diff-whitespace', status: whitespace.code === 0 ? 'passed' : 'failed', detail: diagnostic(whitespace.stdout.toString()) || (whitespace.code === 0 ? 'No whitespace errors' : 'Whitespace errors found') });
+      checks.push(await whitespaceCheck(workspace, signal));
       if (!patch.trim()) throw new Error('Edits produced no patch');
       signal.throwIfAborted();
       status = checks.some(c => c.status === 'failed') ? 'failed' : 'passed';
