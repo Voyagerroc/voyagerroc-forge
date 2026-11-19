@@ -1,6 +1,6 @@
 {
   "name": "voyagerroc-forge",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "GitHub-connected framework starter for reviewable agent workflows: pinned source, scoped edits, patches and check evidence.",
   "license": "MIT",

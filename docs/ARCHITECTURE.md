@@ -18,7 +18,7 @@ Forge is a local application with framework building blocks. It does not yet exp
 
 Task states: queued → planned → in review → approved. This approves a specification. Run states are independent: preparing → running → terminal result. Neither plan approval nor a passed static run authorizes upstream publication.
 
-The database stores projects, tasks, runs, events, deliveries and PR snapshots. State changes and their audit events use transactions. Run evidence includes immutable source SHA, exact patch bytes, patch hash and named results. Summary responses omit full patch bodies; run-detail responses return them.
+The database stores projects, tasks, runs, events, deliveries and PR snapshots. State changes and their audit events use transactions. Run evidence includes immutable source SHA, exact patch bytes, patch hash and named results. Summary responses omit full patch bodies; run-detail responses return them. Each task in `GET /api/state` lists its own recorded events (`id`, `kind`, `created_at`, and `run_id` when the event names a run), oldest first; the top-level `events` list stays the newest 50 of the project.
 
 ## Source and execution adapters
 
