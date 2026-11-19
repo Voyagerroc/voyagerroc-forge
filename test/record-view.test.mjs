@@ -178,6 +178,16 @@ test('running and cancelled runs show a state word, not a patch', () => {
   assert.equal(f.record().getAttribute('aria-busy'), null);
 });
 
+test('no class the record uses collides with the skip link, which is positioned off screen', () => {
+  const data = state(); data.runs[0] = { ...data.runs[0], status: 'cancelled', has_patch: false, patch_sha256: null, checks: [], summary: 'Run cancelled; no upstream changes were made.' };
+  for (const status of ['cancelled', 'interrupted', 'running']) {
+    data.runs[0].status = status;
+    const f = open(JSON.parse(JSON.stringify(data)));
+    assert.deepEqual(withClass(f.record(), 'skip'), [], status);
+  }
+  assert.match(readPublic('style.css'), /\.skip \{ position: absolute; left: 12px; top: -80px/);
+});
+
 test('next-step buttons keep their names and the approved task offers a run', () => {
   const data = state();
   for (const [status, label] of [['queued', 'Generate plan'], ['planned', 'Request review'], ['in_review', 'Approve plan'], ['approved', 'Run scoped edits']]) {

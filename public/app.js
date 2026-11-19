@@ -250,7 +250,7 @@ function patchSection(rn, detail) {
 function checkItem(check) {
   const item = node('li', undefined, check.status === 'passed' ? '' : 'check-failed'), text = node('div');
   const isEdit = check.name.startsWith('edit:');
-  text.append(node('strong', checkName(check.name)), node('code', check.name), node('p', isEdit && check.status === 'passed' ? 'The text to replace was found once and was replaced.' : (check.detail || NA)));
+  text.append(node('strong', checkName(check.name)), node('code', check.name), node('p', isEdit && check.status === 'passed' ? 'Found exactly once and replaced.' : (check.detail || NA)));
   item.append(mark(check.status === 'passed' ? 'passed' : 'failed'), text);
   return item;
 }
@@ -263,7 +263,7 @@ function checksSection(rn) {
   text.append(node('strong', 'Project tests'), node('code', 'not part of Forge'), node('p', "Not run. Forge does not run project tests, so beyond the checks above this change is untested."));
   notRun.append(mark('notrun'), text);
   list.append(notRun);
-  return lettered(`sec-checks-${rn.id}`, 'C', 'Checks', 'What was checked, and what was not', null, list);
+  return lettered(`sec-checks-${rn.id}`, 'C', 'Checks', 'What was and was not checked', null, list);
 }
 function failureHelp(rn, later) {
   const box = node('div', undefined, 'fix');
@@ -279,7 +279,7 @@ const hasEvidence = rn => !isActive(rn) && (rn.has_patch || (rn.checks ?? []).le
 function runRows(rn, project, task, latest, later) {
   const title = `Run ${numbers.get(rn.id)}`, active = isActive(rn);
   const verdictKind = rn.status === 'passed' ? 'pass' : active ? 'run' : ['failed', 'timed_out'].includes(rn.status) ? 'fail' : 'skip';
-  const verdict = node('div', undefined, `verdict ${verdictKind}`);
+  const verdict = node('div', undefined, `verdict v-${verdictKind}`);
   verdict.append(mark(rn.status), node('p', rn.summary || (active ? 'Preparing a pinned source snapshot…' : NA)));
   const body = [node('h2', `${title} · ${active ? 'in progress' : latest ? 'latest' : 'kept as recorded'}`, 'ev-kind'), verdict];
   if (active) {
@@ -348,7 +348,7 @@ function buildTrail(task, runs, project) {
   // Approvals: one section, one letter, both recorded events.
   const approved = events.find(e => e.type === 'approved'), review = events.find(e => e.type === 'review');
   const group = node('section', undefined, 'group'); group.id = 'sec-approvals'; attr(group, 'aria-labelledby', 'sec-approvals-h');
-  const header = exhibitHead('D', 'Approvals', 'When the plan was reviewed and approved', 'sec-approvals-h');
+  const header = exhibitHead('D', 'Approvals', 'Plan review and approval', 'sec-approvals-h');
   const first = approved ?? review;
   if (first) {
     const describe = event => event.type === 'approved'
@@ -482,7 +482,7 @@ function emptyRecord() {
     list.append(node('li', text));
   }
   const parts = node('ul', undefined, 'will-show');
-  for (const [letter, title, sub] of [['A', 'Source', 'What the change was based on'], ['B', 'Patch', 'Exactly what changed'], ['C', 'Checks', 'What was checked, and what was not'], ['D', 'Approvals', 'When the plan was reviewed and approved']]) {
+  for (const [letter, title, sub] of [['A', 'Source', 'What the change was based on'], ['B', 'Patch', 'Exactly what changed'], ['C', 'Checks', 'What was and was not checked'], ['D', 'Approvals', 'Plan review and approval']]) {
     const item = node('li'); item.append(attr(node('span', letter, 'exh-letter'), 'aria-hidden', 'true'), node('strong', title), node('span', sub)); parts.append(item);
   }
   const body = node('div', undefined, 'sheet-foot'); body.append(node('h2', 'Each record shows', 'sect-title'), parts, node('h2', 'What Forge does not do', 'sect-title'), list, node('p', `${RECORD_NOTE} It is evidence to read, not proof against tampering.`, 'sub'));

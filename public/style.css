@@ -231,7 +231,7 @@ main:focus, h1:focus, section:focus { outline: none; }
 .kv dd { min-width: 0; }
 
 .verdict { border-left: 5px solid currentColor; padding: 8px 14px; background: var(--well); font-size: 16px; font-weight: 600; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
-.verdict.pass { color: var(--pass); } .verdict.fail { color: var(--fail); } .verdict.run { color: var(--run); } .verdict.skip { color: var(--skip); }
+.verdict.v-pass { color: var(--pass); } .verdict.v-fail { color: var(--fail); } .verdict.v-run { color: var(--run); } .verdict.v-skip { color: var(--skip); }
 .verdict p { color: var(--ink); overflow-wrap: anywhere; min-width: 0; }
 
 .hash-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
@@ -296,6 +296,7 @@ details.run-fold { position: relative; }
 .not-list li:nth-child(even) { border-left: 1px solid var(--hair); }
 .connect-slot { margin-top: 20px; max-width: 640px; }
 .empty .empty-note { margin-top: 18px; max-width: 640px; }
+.empty .sheet-head { padding-top: 22px; }
 
 /* ---------- dialogs ---------- */
 dialog { width: min(680px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: 0; border: 1.5px solid var(--ink); border-radius: 6px; background: var(--sheet); color: var(--ink); box-shadow: 0 30px 80px -20px rgba(8,14,28,.55); overflow: auto; overflow-wrap: anywhere; }
@@ -314,7 +315,7 @@ dialog::backdrop { background: rgba(10,16,30,.55); }
 
 /* ---------- narrow ---------- */
 @media (max-width: 960px) {
-  .shell { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 12px 16px 40px; }
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 12px 16px 24px; }
   .shell > .rail, .shell > .col { grid-column: 1; }
   .shell > .col { grid-row: 1; } .shell > .rail { grid-row: 2; }
   .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -344,7 +345,7 @@ dialog::backdrop { background: rgba(10,16,30,.55); }
   .runs-list a { grid-template-columns: auto auto; justify-content: start; padding: 4px 14px; }
   .runs-list .run-line { display: none; }
   .runs-list time { display: none; }
-  .trail { padding: 0 16px 20px 0; }
+  .trail { padding: 0 16px 12px 0; }
   .trail-label { padding-left: 16px; }
   .trail-label span { display: none; }
   .trail-label .record-note { margin: 2px 0 0; padding-left: 0; flex: 1 1 100%; }
@@ -366,6 +367,10 @@ dialog::backdrop { background: rgba(10,16,30,.55); }
   .hash-row { flex-wrap: nowrap; align-items: flex-start; gap: 8px; }
   .hash-row .copy { flex: none; }
   .rail { gap: 10px; }
+  .exh { margin-bottom: 4px; }
+  .task { padding: 8px 12px 8px 14px; }
+  .task[aria-current="true"] { padding-left: 18px; }
+  .task strong { margin: 3px 0 0; }
   .ev h2, .ev h3, .ev h4 { font-size: 17px; }
   .checks li > div { display: contents; }
   .checks li p { flex: 1 1 100%; }
