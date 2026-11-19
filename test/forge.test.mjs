@@ -5,6 +5,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
+import { request as httpRequest } from 'node:http';
 import { openStore } from '../src/store.mjs';
 import { GitHubAdapter, parseRepository, verifySignature } from '../src/github.mjs';
 import { createApp } from '../src/server.mjs';
@@ -127,6 +128,40 @@ test('cross-origin mutation, unknown adapters and missing projects are rejected'
   assert.equal((await call('/api/projects', { repository: 'example/project' }, { Origin: 'https://evil.test' })).status, 403);
   assert.equal((await call('/api/tasks', { projectId: 'missing', title: 'x', intent: 'x', adapter: 'invalid' })).status, 400);
   assert.equal((await call('/api/tasks', { projectId: 'missing', title: 'x', intent: 'x', adapter: 'github' })).status, 404);
+});
+test('requests with a foreign Host header are rejected for GET and POST', async t => {
+  const { origin } = await fixture(t);
+  const { port } = new URL(origin);
+  const send = (method, path, host, headers = {}) => new Promise((resolve, reject) => {
+    const request = httpRequest({ host: '127.0.0.1', port, method, path, headers: { Host: host, ...headers } }, response => {
+      response.resume(); response.on('end', () => resolve(response));
+    });
+    request.on('error', reject); request.end(method === 'POST' ? '{}' : undefined);
+  });
+  const local = { Origin: origin, 'Content-Type': 'application/json', 'X-Forge-Client': 'local-ui' };
+  for (const host of ['evil.test', `evil.test:${port}`, `127.0.0.1:${Number(port) + 1}`, `[::1]:${port}`]) {
+    const get = await send('GET', '/api/state', host); assert.equal(get.statusCode, 403, `GET with Host ${host}`);
+    assert.match(get.headers['content-security-policy'], /default-src 'self'/);
+    assert.equal((await send('POST', '/api/projects', host, local)).statusCode, 403, `POST with Host ${host}`);
+  }
+  assert.equal((await send('GET', '/api/state', `localhost:${port}`)).statusCode, 200);
+});
+test('mutations without the local client header, with another content type or over 1 MiB are rejected', async t => {
+  const { origin, store } = await fixture(t);
+  const post = (headers, body) => fetch(origin + '/api/projects', { method: 'POST', headers: { Origin: origin, ...headers }, body });
+  const valid = { 'Content-Type': 'application/json', 'X-Forge-Client': 'local-ui' };
+  const input = JSON.stringify({ repository: 'example/project' });
+  assert.equal((await post({ 'Content-Type': 'application/json' }, input)).status, 403);
+  assert.equal((await post({ ...valid, 'X-Forge-Client': 'other' }, input)).status, 403);
+  for (const type of ['text/plain', 'application/x-www-form-urlencoded']) assert.equal((await post({ ...valid, 'Content-Type': type }, input)).status, 415, type);
+  const bare = await new Promise((resolve, reject) => {
+    const request = httpRequest(origin + '/api/projects', { method: 'POST', headers: { Origin: origin, 'X-Forge-Client': 'local-ui' } }, response => { response.resume(); response.on('end', () => resolve(response)); });
+    request.on('error', reject); request.end(input);
+  });
+  assert.equal(bare.statusCode, 415);
+  const large = await post(valid, JSON.stringify({ repository: 'a'.repeat(1024 * 1024) }));
+  assert.equal(large.status, 413); assert.deepEqual(await large.json(), { error: 'Request is too large' });
+  assert.equal(store.snapshot().projects.length, 0);
 });
 test('static routes set CSP and reject traversal', async t => {
   const { origin } = await fixture(t);
