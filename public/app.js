@@ -443,7 +443,7 @@ function buildRecord(task) {
   const actions = node('div', undefined, 'actions head-actions'); actions.append(...stepButton(task));
   if (task.status === 'approved' && !runs.length) actions.append(node('span', 'Plan approved · execution not started', 'head-note'));
   top.append(node('p', `Change record · ${project?.full_name ?? NA}`, 'eyebrow'), actions);
-  head.append(top, row, node('p', 'Forge applies exact edits that you provide. It does not write code with an AI model. Its checks are static; project tests are not run. It runs locally for one user; nothing is published or merged.', 'limits-line'), evidenceSummary(task, runs, project));
+  head.append(top, row, node('p', 'Forge applies exact edits that you provide. It does not write code with an AI model. Its checks are static; project tests are not run. It runs locally for one user; nothing is published or merged. The record is local and its hashes are not signed.', 'limits-line'), evidenceSummary(task, runs, project));
   if (runs.length > 1) head.append(runsList(runs));
   sheet.append(head, buildTrail(task, runs, project));
   return sheet;
@@ -611,7 +611,7 @@ function showPlan(task, trigger) {
   const detail = $('#plan-detail'); const list = node('ol', undefined, 'plan-list');
   task.plan.steps.forEach(step => { const item = node('li'); item.append(node('span', step.stage, 'who'), node('span', step.action)); list.append(item); });
   $('#plan-dialog-title').textContent = `Plan for “${task.title}”`;
-  detail.replaceChildren(node('p', 'DRY RUN · No agent execution', 'banner'), node('p', 'Nothing in this plan was executed. When you run scoped edits, Forge applies only the exact edits you provide and runs static checks; no AI model writes code.', 'sub'), list, node('p', task.plan.gates.join(' · '), 'help'));
+  detail.replaceChildren(node('p', 'DRY RUN · Nothing was executed', 'banner'), node('p', 'Nothing in this plan was executed. When you run scoped edits, Forge applies only the exact edits you provide and runs static checks; no AI model writes code.', 'sub'), list, node('p', task.plan.gates.join(' · '), 'help'));
   openDialog($('#plan-dialog'), trigger);
 }
 

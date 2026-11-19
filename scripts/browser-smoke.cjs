@@ -21,7 +21,7 @@ const fs = require('node:fs');
     await page.getByRole('button', { name: 'Approve plan', exact: true }).first().click();
     await page.getByText('Plan approved · execution not started', { exact: true }).first().waitFor();
     await page.getByRole('button', { name: 'View plan', exact: true }).first().click();
-    await page.getByText('DRY RUN · No agent execution', { exact: true }).waitFor();
+    await page.getByText('DRY RUN · Nothing was executed', { exact: true }).waitFor();
     await page.locator('#close-plan').click();
     await page.reload();
     await page.getByText('Plan approved · execution not started', { exact: true }).first().waitFor();

@@ -92,6 +92,11 @@ test('copy announces Copied through the status region and survives a missing cli
   assert.match(bare.get('#message').textContent, /Copy failed/);
 });
 
+test('the task record says once that hashes are not signed', () => {
+  const text = textOf(open().record());
+  assert.equal(text.match(/hashes are not signed/g).length, 1);
+});
+
 test('a field that is not recorded shows not available', () => {
   const data = state(); data.tasks[0].events = []; data.runs = [];
   const f = open(data);
