@@ -43,12 +43,12 @@ const fs = require('node:fs');
         if (dialog) assert.equal(await dialog.evaluate(el => el.scrollWidth > el.clientWidth), false, 'Dialog overflow');
       }
       // The visible heading is the accessible name; a screen reader announces e.g.
-      // "Create a workflow, dialog" and a role-based locator can find it.
+      // "Create a task, dialog" and a role-based locator can find it. The plan dialog's
+      // title names the task, so it is matched by prefix.
       const dialogNames = {
-        task: 'Create a workflow',
-        plan: 'Workflow specification',
+        task: 'Create a task',
+        plan: /^Plan for /,
         run: 'Run scoped edits',
-        result: 'Run evidence',
       };
       async function open(trigger, id) {
         await activate(trigger);
@@ -96,7 +96,8 @@ const fs = require('node:fs');
       await activate(page.getByRole('button', { name: 'Create task', exact: true }));
       await page.getByRole('status').filter({ hasText: 'Workflow task created.' }).waitFor();
       await focused(newTask);
-      const card = page.locator('.task-card').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
+      // The new task's record is shown as soon as it is created.
+      const card = page.locator('#record').filter({ has: page.getByRole('heading', { name: title, exact: true, level: 1 }) });
       for (const action of ['Generate plan', 'Request review', 'Approve plan']) {
         await activate(card.getByRole('button', { name: action, exact: true }));
         await page.getByRole('status').filter({ hasText: `${action} completed.` }).waitFor();
@@ -136,6 +137,9 @@ const fs = require('node:fs');
       await activate(page.getByRole('button', { name: 'Run edits & static checks', exact: true }));
       await page.waitForFunction(() => !document.querySelector('#run-form').hasAttribute('aria-busy'));
       assert.ok(await page.locator('#run-dialog').evaluate(el => el.open), 'Rejected submission must keep the modal open');
+      // The explanation sits inside the dialog, in an alert region, and the field is marked invalid.
+      assert.match(await page.locator('#run-dialog [role=alert]').innerText(), /Edits not run/);
+      assert.equal(await page.locator('#edits').getAttribute('aria-invalid'), 'true');
       await tabTo(page.locator('#edits'));
       await page.keyboard.press('ControlOrMeta+A');
       await page.keyboard.type(JSON.stringify([{ path: 'hello.mjs', before: '"helo"', after: '"hello"' }]));
@@ -147,40 +151,22 @@ const fs = require('node:fs');
       // Also cover a delayed refresh after the native close event has already fired.
       await rebuild();
       await focused(returnPoint === run && await run.isEnabled() ? run : plan);
-      const result = page.locator('.run-card').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
-      await result.getByText('passed', { exact: true }).waitFor({ timeout: 30000 });
-      const evidence = result.getByRole('button', { name: 'View evidence', exact: true });
-      // The evidence request itself can overlap a state refresh before showModal().
-      let release, requested;
-      const gate = new Promise(resolve => { release = resolve; });
-      const requestStarted = new Promise(resolve => { requested = resolve; });
-      await page.route('**/api/runs/*', async route => {
-        const response = await route.fetch();
-        requested();
-        await gate;
-        await route.fulfill({ response });
-      }, { times: 1 });
-      await activate(evidence);
-      await requestStarted;
+      // The evidence is part of the record; there is no evidence dialog any more.
+      const record = page.locator('#record');
+      await record.getByText('Scoped edits and static checks passed. Project tests were not run.', { exact: true }).waitFor({ timeout: 30000 });
+      const patchRegion = page.getByRole('region', { name: 'Patch for hello.mjs' });
+      await patchRegion.waitFor();
+      assert.match(await record.innerText(), /syntax:hello\.mjs/);
+      assert.match(await patchRegion.innerText(), /export const greeting = "hello";/);
+      // A refresh that rebuilds the record keeps focus on a rebuilt copy button.
+      const copy = page.getByRole('button', { name: 'Copy pinned commit', exact: true });
+      await tabTo(copy);
       await rebuild();
-      release();
-      await page.locator('#result-dialog').waitFor({ state: 'visible' });
-      await close('result', 'Escape', evidence);
-      for (const replaced of [false, true]) {
-        for (const method of ['Escape', 'Close']) {
-          await open(evidence, 'result');
-          assert.match(await page.locator('#run-detail').innerText(), /syntax:hello\.mjs/);
-          assert.match(await page.locator('#run-detail pre').innerText(), /\+export const greeting = "hello";/);
-          if (replaced) await rebuild();
-          await close('result', method, evidence);
-        }
-      }
+      await focused(copy);
+      // Keyboard reach: the patch is a focusable, scrollable region.
+      await tabTo(patchRegion);
       await page.screenshot({ path: `qa/dialog-focus-return-${width}.png` });
       for (const method of ['Escape', 'Close']) {
-        await open(evidence, 'result');
-        await page.evaluate(() => { state.runs = []; render(); });
-        await close('result', method, page.locator('#refresh-runs'));
-        await rebuild();
         await open(newTask, 'task');
         await page.evaluate(() => { state.projects = []; render(); });
         await close('task', method, page.locator('#workflow-heading'));
@@ -188,7 +174,7 @@ const fs = require('node:fs');
       }
       report.viewports.push({ width, keyboardOnly: true, nativeModal: true, escapeAndClose: true,
         taskAndRunSubmission: true, replacedTriggers: true, unavailableTriggers: true,
-        postCloseRefresh: true, pendingEvidenceRefresh: true, focusVisible: true, dialogNames: true,
+        postCloseRefresh: true, evidenceInRecord: true, focusVisible: true, dialogNames: true,
         overflow: false, realLocalRun: 'passed' });
       await page.close();
     }

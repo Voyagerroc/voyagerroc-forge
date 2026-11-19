@@ -1,29 +1,17 @@
-#executions { margin: 32px 0; }
-.workflow-controls { display: flex; gap: 10px; align-items: center; }
-.workflow-controls select { width: auto; padding: 8px 12px; font-size: 12px; background: #0d1420; border: 1px solid #2b374b; border-radius: 6px; color: #dce4ef; }
-.runner-limits-banner { background: #0e1625; border: 1px solid #23344d; border-radius: 6px; padding: 10px 12px; font-size: 12px; color: #9bb2d6; margin: 8px 0; line-height: 1.5; }
-.runner-limits-banner p { margin: 6px 0 0; color: inherit; line-height: inherit; }
+/* Run dialog: runner limits, the edits field and its error region. */
 #run-dialog { overflow-wrap: anywhere; }
+#runner-limits { line-height: 1.5; }
+#runner-limits p { margin: 6px 0 0; }
+#edits { font: 14.5px/1.6 var(--mono); }
+#edits-error { margin-top: 12px; }
+#edits-error:empty { margin: 0; }
+.err-box { border: 2px solid var(--fail); background: var(--fail-bg); border-radius: 4px; padding: 12px 16px; }
+.err-box .st { margin-bottom: 6px; }
+.err-box p { color: var(--ink); margin: 0; }
+.err-box pre { margin: 10px 0 0; padding: 8px 12px; background: var(--sheet); border: 1px solid var(--fail); border-radius: 3px; font: 14px/1.5 var(--mono); overflow: auto; white-space: pre; }
+.err-box .caret { color: var(--fail); font-weight: 800; }
+#run-task-title { overflow-wrap: anywhere; }
 @media (max-width: 700px) {
-  .workflow-controls { flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
-  .workflow-controls select { max-width: 100%; }
-  #run-dialog { padding: 18px; }
-  #edits { height: 8em; }
-}
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
-#runs { display: grid; gap: 14px; }
-.run-card { overflow-wrap: anywhere; }
-.run-card button { margin: 14px 10px 0 0; }
-.run-card h3 { font-size: 15px; }
-#result-dialog { width: min(900px, calc(100% - 24px)); }
-#run-detail { min-width: 0; overflow-wrap: anywhere; }
-#run-detail pre { padding: 16px; background: #0a111c; border: 1px solid #2b3b55; border-radius: 7px; max-width: 100%; overflow: auto; font: 12px/1.7 Consolas, monospace; }
-#run-detail li { font-size: 12px; white-space: pre-wrap; }
-#edits { font: 12px/1.7 Consolas, monospace; }
-.project-card strong { display: block; margin-top: 12px; }
-:focus-visible { scroll-margin: 8px; }
-@media (max-width: 700px) {
-  #workflow > .section-heading { flex-wrap: wrap; }
-  .workflow-controls { flex-wrap: wrap; max-width: 100%; }
-  .workflow-controls select { max-width: 100%; }
+  #run-dialog .dlg { padding: 18px 16px 22px; }
+  #edits { height: 8em; min-height: 8em; }
 }

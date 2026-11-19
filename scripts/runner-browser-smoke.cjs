@@ -13,7 +13,7 @@ async function checkLimits(page, runner) {
   const scope = await page.locator('#run-check-scope').innerText();
   for (const text of ['Static checks only', 'edited files', '.json', '.js/.mjs/.cjs', 'diff whitespace', 'No AI generation or project tests'])
     assert.ok(scope.includes(text), text);
-  assert.equal(await page.locator('#edits').getAttribute('aria-describedby'), 'runner-limits run-check-scope');
+  assert.equal(await page.locator('#edits').getAttribute('aria-describedby'), 'runner-limits run-check-scope edits-error');
   assert.equal(await page.getByRole('dialog', { name: 'Run scoped edits', exact: true }).count(), 1);
   assert.equal(await page.locator('#run-dialog').evaluate(el => el.scrollWidth > el.clientWidth), false);
 }
@@ -35,13 +35,14 @@ async function checkLimits(page, runner) {
     await page.locator('#title').fill(title);
     await page.locator('#intent').fill('Apply an explicit spelling correction in a separate copy and inspect the real patch plus static verification evidence.');
     await page.getByRole('button', { name: 'Create task', exact: true }).click();
-    const card = page.locator('.task-card').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
+    // The new task's record is shown as soon as it is created.
+    const card = page.locator('#record').filter({ has: page.getByRole('heading', { name: title, exact: true, level: 1 }) });
     for (const action of ['Generate plan', 'Request review', 'Approve plan']) await card.getByRole('button', { name: action, exact: true }).click();
     const start = card.getByRole('button', { name: 'Run scoped edits', exact: true });
     await start.waitFor();
     await page.setViewportSize({ width: 390, height: 844 });
     await card.getByRole('button', { name: 'View plan', exact: true }).focus();
-    await page.keyboard.press('Tab');
+    await page.keyboard.press('Shift+Tab');
     assert.equal(await start.evaluate(el => el === document.activeElement), true);
     await page.keyboard.press('Enter');
     await checkLimits(page, state.runner);
@@ -67,19 +68,18 @@ async function checkLimits(page, runner) {
     const submit = page.getByRole('button', { name: 'Run edits & static checks', exact: true });
     assert.equal(await submit.evaluate(el => el === document.activeElement), true);
     await page.keyboard.press('Enter');
-    const result = page.locator('.run-card').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
-    await result.getByText('passed', { exact: true }).waitFor({ timeout: 30000 });
-    await result.getByRole('button', { name: 'View evidence', exact: true }).click();
-    await page.locator('#run-detail pre').filter({ hasText: '+export const greeting = "hello";' }).waitFor();
-    if (!(await page.locator('#run-detail').innerText()).includes('syntax:hello.mjs')) throw new Error('No real syntax evidence');
+    // The evidence is part of the record: no separate evidence dialog.
+    const record = page.locator('#record');
+    await record.getByText('Scoped edits and static checks passed. Project tests were not run.', { exact: true }).waitFor({ timeout: 30000 });
+    await record.locator('.diff').filter({ hasText: 'export const greeting = "hello";' }).waitFor();
+    if (!(await record.innerText()).includes('syntax:hello.mjs')) throw new Error('No real syntax evidence');
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.screenshot({ path: 'qa/forge-runner-evidence-desktop-2026-10-28.png', fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    const modalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+    const evidenceOverflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
     await page.screenshot({ path: 'qa/forge-runner-evidence-mobile-2026-10-28.png', fullPage: true });
-    await page.locator('#close-result').click();
     await page.reload();
-    await page.locator('.run-card').filter({ has: page.getByRole('heading', { name: title, exact: true }) }).getByText('passed', { exact: true }).waitFor();
+    await page.locator('#record').getByText('Scoped edits and static checks passed. Project tests were not run.', { exact: true }).waitFor();
     const pageOverflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
     const saved = await (await page.request.get(origin + '/api/state')).json();
     const task = saved.tasks.find(t => t.title === title); const run = saved.runs.find(r => r.task_id === task.id);
@@ -102,11 +102,11 @@ async function checkLimits(page, runner) {
     await page.unroute('**/api/state');
     assert.equal((await (await page.request.get(origin + '/api/state')).json()).runs.length, saved.runs.length);
     const report = { persisted: run.status === 'passed', baseSha: run.base_sha, patchSha256: run.patch_sha256,
-      checks: run.checks.map(c => ({ name: c.name, status: c.status })), modalOverflow, pageOverflow, pageErrors: errors,
+      checks: run.checks.map(c => ({ name: c.name, status: c.status })), evidenceOverflow, pageOverflow, pageErrors: errors,
       capabilityMetadata: true, substitutedCapabilities: true, keyboardNavigation: true, keyboardSubmission: true,
       mobileViewport: { width: 390, height: 844 }, browser: browser.version() };
     fs.writeFileSync('qa/forge-runner-browser-result-2026-10-28.json', JSON.stringify(report, null, 2));
-    if (modalOverflow || pageOverflow || errors.length) throw new Error(JSON.stringify(report));
+    if (evidenceOverflow || pageOverflow || errors.length) throw new Error(JSON.stringify(report));
     console.log(JSON.stringify(report));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
