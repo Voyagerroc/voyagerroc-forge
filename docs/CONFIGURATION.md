@@ -5,7 +5,7 @@ Forge requires Node.js 24.19+ and Git. No npm runtime dependencies. Environment 
 | Variable | Default / purpose |
 | --- | --- |
 | `PORT` | `4317`, loopback HTTP port |
-| `FORGE_DB` | `data/forge.sqlite`, SQLite database path |
+| `FORGE_DB` | `data/forge.sqlite`, SQLite database path. One server per database file: it holds a `<path>.lock` file while running. To run a second server, give it its own `FORGE_DB` |
 | `FORGE_LOCAL_REPOSITORIES` | Optional JSON object mapping project names to operator-controlled local Git paths |
 | `GITHUB_WEBHOOK_SECRET` | Required to accept incoming signed GitHub webhooks |
 | `GITHUB_APP_ID` | Optional GitHub App ID |

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac, generateKeyPairSync, createVerify } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
@@ -59,7 +59,80 @@ test('an occupied port exits with a PORT hint and leaves the listener alone', as
   assert.equal(code, 1, stderr);
   assert.match(stderr, new RegExp(`port ${port} is already in use`));
   assert.match(stderr, /PORT=/);
+  assert.match(stderr, /FORGE_DB=/, 'a second server must not be pointed at the same database');
+  assert.equal(existsSync(join(dir, 'forge.sqlite.lock')), false, 'the lock is released when startup fails');
   assert.equal(blocker.listening, true, 'the existing listener is left untouched');
+});
+function activeRun(store) {
+  const project = store.connect(repo);
+  let task = store.createTask({ projectId: project.id, title: 'Keep evidence', intent: 'Run is active', adapter: 'github' });
+  for (const status of ['planned', 'in_review', 'approved']) task = store.transition(task.id, task.version, status, { mode: 'dry-run' });
+  const run = store.createRun(task.id, task.version);
+  store.startRun(run.id, 'a'.repeat(40));
+  return run;
+}
+test('a second server on the same database cannot interrupt the first server\'s active runs', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'forge-lock-'));
+  const filename = join(directory, 'forge.sqlite');
+  const first = openStore(filename);
+  t.after(() => { first.close(); rmSync(directory, { recursive: true, force: true }); });
+  const run = activeRun(first);
+  let second, refused;
+  try { second = openStore(filename); second.recoverRuns(); second.close(); } catch (error) { refused = error; }
+  assert.equal(first.getRun(run.id).status, 'running', 'the first server\'s run is still active');
+  assert.match(refused?.message ?? '', /forge\.sqlite\.lock/);
+  assert.match(refused.message, /FORGE_DB=/);
+  const result = first.finishRun(run.id, { status: 'passed', summary: 'done', patch: 'diff', patchSha256: 'x' });
+  assert.equal(result.status, 'passed'); assert.equal(result.patch, 'diff');
+});
+test('the database lock is released on close and in-memory databases take none', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'forge-lock-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const filename = join(directory, 'forge.sqlite');
+  const store = openStore(filename);
+  const info = JSON.parse(readFileSync(filename + '.lock', 'utf8'));
+  assert.equal(info.pid, process.pid); assert.ok(Number.isFinite(Date.parse(info.started)));
+  store.close();
+  assert.equal(existsSync(filename + '.lock'), false);
+  openStore(filename).close();
+  openStore(':memory:').close(); openStore(':memory:').close();
+  assert.equal(existsSync(':memory:.lock'), false);
+});
+test('a lock left by a process that no longer exists is replaced', async t => {
+  const { spawn } = await import('node:child_process');
+  const child = spawn(process.execPath, ['-e', '']); await once(child, 'exit');
+  const directory = mkdtempSync(join(tmpdir(), 'forge-lock-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const filename = join(directory, 'forge.sqlite');
+  writeFileSync(filename + '.lock', JSON.stringify({ pid: child.pid, started: '2020-01-01T00:00:00.000Z' }));
+  const store = openStore(filename);
+  assert.equal(JSON.parse(readFileSync(filename + '.lock', 'utf8')).pid, process.pid);
+  store.close();
+  assert.equal(existsSync(filename + '.lock'), false);
+});
+test('a lock file that cannot be read is not replaced', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'forge-lock-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const filename = join(directory, 'forge.sqlite');
+  writeFileSync(filename + '.lock', 'not json');
+  assert.throws(() => openStore(filename), /forge\.sqlite\.lock/);
+  assert.equal(readFileSync(filename + '.lock', 'utf8'), 'not json');
+});
+test('npm start refuses a database that another server holds and names the lock file', async t => {
+  const { spawn } = await import('node:child_process');
+  const directory = mkdtempSync(join(tmpdir(), 'forge-lock-'));
+  const filename = join(directory, 'forge.sqlite');
+  const holder = openStore(filename);
+  t.after(() => { holder.close(); rmSync(directory, { recursive: true, force: true }); });
+  const child = spawn(process.execPath, ['src/server.mjs'], {
+    cwd: process.cwd(), env: { ...process.env, PORT: '0', FORGE_DB: filename }, stdio: ['ignore', 'pipe', 'pipe']
+  });
+  let stderr = ''; child.stderr.setEncoding('utf8'); child.stderr.on('data', chunk => { stderr += chunk; });
+  const [code] = await once(child, 'exit');
+  assert.equal(code, 1, stderr);
+  assert.ok(stderr.includes(filename + '.lock'), stderr);
+  assert.match(stderr, /FORGE_DB=/);
+  assert.equal(existsSync(filename + '.lock'), true, 'the holder\'s lock is left in place');
 });
 test('repository parsing permits GitHub repositories and rejects URL injection', () => {
   for (const value of ['example/project', 'https://github.com/example/project', 'https://github.com/example/project.git']) assert.equal(parseRepository(value), 'example/project');

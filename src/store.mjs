@@ -1,10 +1,49 @@
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
+const processAlive = pid => {
+  try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
+};
+// One live server per database file: recoverRuns() marks every active run
+// "interrupted", which is only correct when no other server owns those runs.
+// The lock is created atomically (wx) next to the database. A lock whose
+// process has exited is stale and is replaced; one that cannot be read is not.
+function lockDatabase(filename) {
+  const lock = `${filename}.lock`;
+  const mine = JSON.stringify({ pid: process.pid, started: new Date().toISOString() });
+  for (;;) {
+    try { writeFileSync(lock, mine, { flag: 'wx' }); break; }
+    catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      let held, owner;
+      try { held = readFileSync(lock, 'utf8'); } catch (readError) { if (readError.code === 'ENOENT') continue; throw readError; }
+      try { owner = JSON.parse(held); } catch {}
+      const pid = Number.isSafeInteger(owner?.pid) && owner.pid > 0 ? owner.pid : null;
+      if (pid && !processAlive(pid)) {
+        try { if (readFileSync(lock, 'utf8') === held) unlinkSync(lock); } catch (staleError) { if (staleError.code !== 'ENOENT') throw staleError; }
+        continue;
+      }
+      throw Object.assign(new Error(pid
+        ? `Voyagerroc Forge: database ${filename} is already in use by process ${pid} (lock file ${lock}, started ${owner.started}). `
+          + 'Run one server per database, or give this server its own database, for example: FORGE_DB=data/second.sqlite npm start'
+        : `Voyagerroc Forge: lock file ${lock} exists but does not name a process. If no Forge server is using ${filename}, delete the lock file; `
+          + 'otherwise give this server its own database, for example: FORGE_DB=data/second.sqlite npm start'), { code: 'FORGE_DB_LOCKED' });
+    }
+  }
+  return () => {
+    try { if (JSON.parse(readFileSync(lock, 'utf8')).pid === process.pid) unlinkSync(lock); } catch {}
+  };
+}
+
 export function openStore(filename) {
-  if (filename !== ':memory:') mkdirSync(dirname(filename), { recursive: true });
+  let release = () => {};
+  if (filename !== ':memory:') { mkdirSync(dirname(filename), { recursive: true }); release = lockDatabase(filename); }
+  try { return openLockedStore(filename, release); } catch (error) { release(); throw error; }
+}
+
+function openLockedStore(filename, release) {
   const db = new DatabaseSync(filename);
   db.exec(`PRAGMA journal_mode=WAL;
     PRAGMA foreign_keys=ON;
@@ -59,7 +98,7 @@ export function openStore(filename) {
     return row ? { ...row, checks: JSON.parse(row.checks) } : null;
   };
   return {
-    close: () => db.close(), getProject, getTask, getRun,
+    close() { try { db.close(); } finally { release(); } }, getProject, getTask, getRun,
     snapshot() {
       return {
         projects: db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all(),
