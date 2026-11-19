@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { loadApp, all, withClass, textOf } from './helpers/fake-dom.mjs';
+import { adapters, buildPlan } from '../src/adapters.mjs';
 
 const BASE = '67c3d0c50c5cc98085d89fcd43a6e98520c3fb0a';
 const PATCH_HASH = '8fef16c87de2f20a07bc311f9d8d4056790e485ae1942967573b879e32d90234';
@@ -92,9 +93,67 @@ test('copy announces Copied through the status region and survives a missing cli
   assert.match(bare.get('#message').textContent, /Copy failed/);
 });
 
-test('the task record says once that hashes are not signed', () => {
-  const text = textOf(open().record());
-  assert.equal(text.match(/hashes are not signed/g).length, 1);
+const SIGNED_SENTENCE = 'The record is local and its hashes are not signed.';
+const readPublic = name => readFileSync(new URL(`../public/${name}`, import.meta.url), 'utf8');
+
+// Minimal stylesheet reader: every rule, with the media block it sits in, and its declarations.
+function cssRules(css, media = '') {
+  const text = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = []; let i = 0;
+  while (i < text.length) {
+    const open = text.indexOf('{', i); if (open < 0) break;
+    const prelude = text.slice(i, open).trim();
+    let depth = 1, j = open + 1;
+    while (j < text.length && depth) { if (text[j] === '{') depth++; else if (text[j] === '}') depth--; j++; }
+    const block = text.slice(open + 1, j - 1);
+    if (/^@(media|supports)/.test(prelude)) rules.push(...cssRules(block, `${media} ${prelude}`.trim()));
+    else if (!prelude.startsWith('@')) rules.push({ media, selectors: prelude.split(','), declarations: block });
+    i = j;
+  }
+  return rules;
+}
+const HIDING = /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?![.\d])|font-size\s*:\s*0(?![.\d])|content-visibility\s*:\s*hidden|color\s*:\s*transparent|clip(?:-path)?\s*:|height\s*:\s*0(?![.\d]))/i;
+function compoundMatches(compound, el) {
+  const classes = String(el.className ?? '').split(/\s+/).filter(Boolean);
+  const tag = /^[a-z][a-z0-9]*/i.exec(compound)?.[0];
+  if (tag && tag.toLowerCase() !== String(el.tagName).toLowerCase()) return false;
+  for (const [, name] of compound.matchAll(/\.([\w-]+)/g)) if (!classes.includes(name)) return false;
+  for (const [, name] of compound.matchAll(/#([\w-]+)/g)) if (el.id !== name) return false;
+  for (const [, name] of compound.matchAll(/\[([\w-]+)/g)) if (!el.hasAttribute?.(name)) return false;
+  return true;
+}
+// Rules that could hide the element or one of its ancestors, at any width and in any media block.
+function hidingRules(css, el) {
+  const chain = []; for (let cur = el; cur; cur = cur.parentElement) chain.push(cur);
+  const found = [];
+  for (const rule of cssRules(css)) {
+    if (!HIDING.test(rule.declarations)) continue;
+    for (const selector of rule.selectors) {
+      if (selector.includes('::')) continue;
+      const last = selector.trim().split(/\s*[>+~]\s*|\s+/).at(-1).replace(/:[\w-]+(?:\([^)]*\))?/g, '');
+      if (chain.some(candidate => compoundMatches(last, candidate))) found.push(`${rule.media} ${selector.trim()}`.trim());
+    }
+  }
+  return found;
+}
+const noteOf = f => all(f.record(), el => el.className === 'record-note')[0];
+
+test('the task record states in the trail that hashes are not signed, at every width', () => {
+  const f = open();
+  assert.equal(textOf(f.record()).split(SIGNED_SENTENCE).length - 1, 1);
+  const holder = noteOf(f);
+  assert.equal(textOf(holder), SIGNED_SENTENCE);
+  assert.deepEqual(hidingRules(readPublic('style.css') + readPublic('runner.css'), holder), []);
+  assert.equal(holder.hasAttribute('hidden'), false);
+});
+
+test('the signed-sentence check catches a stylesheet rule that hides it', () => {
+  const holder = noteOf(open());
+  const css = readPublic('style.css');
+  assert.deepEqual(hidingRules(`${css}\n@media (min-width: 961px) { .record-note { display: none; } }`, holder), ['@media (min-width: 961px) .record-note']);
+  assert.equal(hidingRules(`${css}\n.trail-label { visibility: hidden; }`, holder).length, 1);
+  assert.equal(hidingRules(`${css}\n.trail { height: 0; }`, holder).length, 1);
+  assert.equal(hidingRules(`${css}\n.something-else { display: none; }`, holder).length, 0);
 });
 
 test('a field that is not recorded shows not available', () => {
@@ -169,5 +228,144 @@ test('the interface stays inside the page contract', () => {
   assert.match(html, /id="edits-error" role="alert"/);
   assert.match(html, /<p id="message" role="status" aria-live="polite">/);
   assert.match(html, /aria-describedby="runner-limits run-check-scope edits-error"/);
-  assert.doesNotMatch(js, /\b(?:agent-based|AI-powered|sandbox|SaaS|tamper-proof|verified by)\b/i);
+});
+
+// Every string literal of a classic script, skipping comments and regular expressions.
+function stringLiterals(js) {
+  const found = []; let i = 0;
+  while (i < js.length) {
+    const c = js[i], next = js[i + 1];
+    if (c === '/' && next === '/') { while (i < js.length && js[i] !== '\n') i++; continue; }
+    if (c === '/' && next === '*') { i = js.indexOf('*/', i + 2) + 2; continue; }
+    if (c === "'" || c === '"' || c === '`') {
+      let j = i + 1; while (j < js.length && js[j] !== c) j += js[j] === '\\' ? 2 : 1;
+      found.push(js.slice(i + 1, j)); i = j + 1; continue;
+    }
+    if (c === '/' && /[=(,:!&|?{};]\s*$/.test(js.slice(Math.max(0, i - 3), i))) {
+      let j = i + 1, inClass = false;
+      while (j < js.length && (js[j] !== '/' || inClass)) { if (js[j] === '\\') j++; else if (js[j] === '[') inClass = true; else if (js[j] === ']') inClass = false; j++; }
+      i = j + 1; continue;
+    }
+    i++;
+  }
+  return found;
+}
+const FORBIDDEN = [[/\bagents?\b/i, 'agent'], [/\bAI-powered\b/i, 'AI-powered'], [/\bsandbox(?:es|ed)?\b/i, 'sandbox'], [/\bhosted\b/i, 'hosted'], [/\bSaaS\b/i, 'SaaS'], [/\btamper-proof\b/i, 'tamper-proof'], [/(?<!not )\bsigned\b/i, 'signed'], [/\bverified by\b/i, 'verified by']];
+const forbiddenIn = (label, text) => FORBIDDEN.filter(([pattern]) => pattern.test(text)).map(([, name]) => `${label}: ${name}`);
+const demoPlan = () => buildPlan({ intent: 'x', adapter: 'github' }, { full_name: 'local/demo', latest_sha: null });
+
+test('no text the interface can show uses the words Forge does not claim', () => {
+  const literals = stringLiterals(readPublic('app.js'));
+  assert.ok(literals.length > 150 && literals.some(text => text.includes('Planned, not available')), `scanner found ${literals.length} literals`);
+  const plan = demoPlan();
+  const texts = [
+    ['index.html', readPublic('index.html')],
+    ...literals.map(text => ['app.js', text]),
+    ...adapters.flatMap(a => [[`adapter ${a.id} name`, a.name], [`adapter ${a.id} detail`, a.detail]]),
+    ...plan.steps.map(step => [`plan step ${step.stage}`, `${step.stage} ${step.action}`]),
+    ...plan.gates.map(gate => ['plan gate', gate]),
+  ];
+  assert.deepEqual(texts.flatMap(([label, text]) => forbiddenIn(label, text)), []);
+  // The checker itself: each word is caught, and "not signed" is the one allowed use of "signed".
+  assert.equal(forbiddenIn('x', 'a coding agent in a sandbox, hosted SaaS, AI-powered, tamper-proof, signed, verified by').length, 8);
+  assert.deepEqual(forbiddenIn('x', 'its hashes are not signed'), []);
+});
+
+test('the plan describes only what Forge does today', () => {
+  assert.deepEqual(demoPlan().steps.map(step => step.action), [
+    'Resolve repository local/demo and pin the base revision.',
+    'Make a separate copy of the pinned commit.',
+    'Apply the exact edits you provide to that copy.',
+    'Run the static checks on the changed files.',
+    'Record the patch, the check results and the pinned commit as evidence.'
+  ]);
+});
+
+test('the task dialog offers only adapters that work; planned ones appear once as plain text', () => {
+  assert.deepEqual(adapters.filter(a => a.status === 'planned').map(a => a.id), ['open-scion', 'gcp-scion']);
+  const data = state(); data.adapters = adapters.map(a => ({ ...a }));
+  const f = open(data);
+  assert.deepEqual(f.get('#adapter').children.map(option => option.value), ['github']);
+  const rail = textOf(f.get('#adapters'));
+  for (const text of ['Planned, not available', 'No compatibility is claimed.', 'open_scion / git-ai', 'Google Scion']) assert.equal(rail.split(text).length - 1, 1, text);
+  assert.deepEqual(all(f.get('#adapters'), el => el.className === 'conn').map(textOf), ['GitHub metadata ready', 'open_scion / git-ai', 'Google Scion']);
+  assert.equal(all(f.get('#adapters'), el => el.tagName === 'button' || el.tagName === 'a').length, 0);
+  assert.equal(textOf(f.get('#adapter')).includes('Scion'), false);
+});
+
+// ---------- polling must not disturb a reader ----------
+function reader() {
+  const f = open(state());
+  vm.runInContext(`runDetails.set('r2', { id: 'r2', status: 'passed', task_id: 't', patch: ${JSON.stringify(PATCH)} }); render()`, f.context);
+  f.apply = next => { f.context.next = next; return vm.runInContext('applyState(next)', f.context); };
+  f.focus = id => { const el = f.document.getElementById(id); assert.ok(el, `no element with id ${id}`); el.focus(); assert.equal(f.document.activeElement, el); return el; };
+  f.clone = () => JSON.parse(JSON.stringify(f.data));
+  return f;
+}
+const FOCUSABLE = ['cell-source', 'cell-patch', 'cell-checks', 'cell-approval', 'run-link-r2', 'run-link-r1', 'run-summary-r1', 'earlier-summary', 'copy-commit-r2', 'copy-patch-r2', 'diff-r2-0', 'download-r2', 'workflow-heading'];
+
+test('a render with unchanged or changed state leaves keyboard focus where it was', () => {
+  const f = reader();
+  f.apply(f.clone());
+  for (const id of FOCUSABLE) {
+    const before = f.focus(id);
+    f.rerender();
+    const after = f.document.activeElement;
+    assert.equal(after.id, id, `${id}: focus lost after an unchanged render`);
+    assert.ok(after.isConnected && after !== before, `${id}: focus must be on the new element`);
+    const changed = f.clone(); changed.runs[0].summary = `Changed ${id}`; changed.runs[0].checks.push(check('extra', 'x'));
+    assert.equal(f.apply(changed), true);
+    assert.equal(f.document.activeElement.id, id, `${id}: focus lost after a changed state`);
+    assert.ok(f.document.activeElement.isConnected, id);
+    f.apply(f.clone());
+  }
+});
+
+test('polling with an identical state does not rebuild the record', () => {
+  const f = reader();
+  assert.equal(f.apply(f.clone()), true);
+  const sheet = f.record().children[0], button = f.focus('copy-patch-r2');
+  assert.equal(f.apply(f.clone()), false);
+  assert.equal(f.record().children[0], sheet);
+  assert.equal(f.document.activeElement, button);
+  const next = f.clone(); next.runs[1].summary = 'Another message';
+  assert.equal(f.apply(next), true);
+  assert.notEqual(f.record().children[0], sheet);
+});
+
+test('a render keeps the scroll position of each diff region', () => {
+  const f = reader();
+  const region = f.document.getElementById('diff-r2-0');
+  region.scrollTop = 90; region.scrollLeft = 30;
+  f.rerender();
+  const again = f.document.getElementById('diff-r2-0');
+  assert.notEqual(again, region);
+  assert.deepEqual([again.scrollTop, again.scrollLeft], [90, 30]);
+});
+
+test('when a focused control disappears, focus goes to the next step or the heading', () => {
+  const data = state(); data.tasks[0].status = 'queued'; data.runs = [];
+  const f = open(data);
+  f.document.getElementById('task-t-step').focus();
+  data.tasks[0].status = 'planned'; f.rerender();
+  assert.equal(f.document.activeElement.id, 'task-t-step');
+  const running = state(); running.runs = [{ ...running.runs[0], id: 'r9', status: 'running', finished_at: null, patch_sha256: null, has_patch: false, checks: [], summary: '' }];
+  const g = open(running);
+  g.document.getElementById('cancel-r9').focus();
+  running.runs[0].status = 'cancelled'; running.runs[0].finished_at = '2026-11-19T14:10:50.000Z'; g.rerender();
+  assert.equal(g.document.activeElement.id, 'workflow-heading');
+});
+
+test('an earlier run is one closed line with its state, time and message or hash ends', () => {
+  const f = open(state());
+  const folds = all(f.record(), el => el.tagName === 'details' && el.className === 'run-fold');
+  assert.deepEqual(folds.map(el => el.id), ['run-r1']);
+  assert.equal(folds[0].open, false);
+  assert.match(textOf(folds[0].children[0]), /^Failed Run 1 \d\d:\d\d:\d\d Before text must match exactly once: hello\.mjs$/);
+  const later = state(); later.runs[0].created_at = '2026-11-19T14:10:30.000Z'; later.runs[0].finished_at = '2026-11-19T14:10:31.000Z';
+  const g = open(later);
+  const passedFold = all(g.record(), el => el.tagName === 'details' && el.className === 'run-fold')[0];
+  assert.match(textOf(passedFold.children[0]), /^Passed Run 1 \d\d:\d\d:\d\d Patch SHA-256 8fef16c8…2d90234$/);
+  vm.runInContext("openRuns.add('r1')", f.context); f.rerender();
+  assert.equal(all(f.record(), el => el.tagName === 'details' && el.className === 'run-fold')[0].open, true);
 });

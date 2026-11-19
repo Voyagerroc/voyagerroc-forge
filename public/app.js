@@ -1,4 +1,5 @@
 let state;
+let stateJson = '';
 let runTask;
 let selectedProjectId = 'all';
 let selectedTaskId = null;
@@ -13,6 +14,7 @@ const $ = selector => document.querySelector(selector);
 const node = (tag, text, className) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; };
 const attr = (el, name, value) => { el.setAttribute(name, value); return el; };
 const NA = 'not available';
+const RECORD_NOTE = 'The record is local and its hashes are not signed.';
 const message = text => { $('#message').textContent = text; };
 const formatBytes = bytes => bytes >= 1024 * 1024 ? `${bytes / (1024 * 1024)} MiB` : `${bytes / 1024} KiB`;
 
@@ -40,7 +42,14 @@ async function api(path, data) {
   if (!response.ok) throw new Error(result.error || 'Request failed');
   return result;
 }
-async function refresh() { state = await api('/api/state'); render(); }
+// Render only when the state really changed, so a reader keeps focus, selection and scroll position.
+function applyState(next) {
+  const json = JSON.stringify(next);
+  if (state && json === stateJson) return false;
+  state = next; stateJson = json; render();
+  return true;
+}
+async function refresh() { applyState(await api('/api/state')); }
 
 // ---------- formatting ----------
 const pad = value => String(value).padStart(2, '0');
@@ -175,17 +184,18 @@ function gapPill(text) {
   wrap.append(pill);
   return wrap;
 }
-function exhibitHead(letter, title, sub, id) {
+function exhibitHead(letter, title, sub, id, extra) {
   const wrap = node('div', undefined, 'exh'), text = node('div');
   const heading = node('h3', title); heading.id = id;
   text.append(heading, node('small', sub));
+  if (extra) text.append(extra);
   wrap.append(attr(node('span', letter, 'exh-letter'), 'aria-hidden', 'true'), text);
   return wrap;
 }
-function lettered(id, letter, title, sub, ...content) {
+function lettered(id, letter, title, sub, extra, ...content) {
   const section = node('section', undefined, 'ev ev-plain lettered'); section.id = id;
   attr(section, 'aria-labelledby', `${id}-h`);
-  const body = node('div', undefined, 'ev-body'); body.append(exhibitHead(letter, title, sub, `${id}-h`), ...content);
+  const body = node('div', undefined, 'ev-body'); body.append(exhibitHead(letter, title, sub, `${id}-h`, extra), ...content);
   section.append(body);
   return section;
 }
@@ -193,12 +203,14 @@ function pair(label, value) { const wrap = node('div', undefined, 'kv-row'), ter
 const definitions = (...rows) => { const list = node('dl', undefined, 'kv'); list.append(...rows); return list; };
 const plainValue = text => node('span', text, text === NA ? 'na' : '');
 
-function diffFile(file) {
+const liveRegions = [];
+function diffFile(file, id) {
   const wrap = node('div', undefined, 'diff-file');
   const caption = node('div', undefined, 'diff-cap');
   caption.append(node('code', file.path), node('span', `${plural(file.removed, 'line')} removed, ${plural(file.added, 'line')} added`));
   const region = attr(attr(node('div', undefined, 'diff'), 'role', 'region'), 'aria-label', `Patch for ${file.path}`);
-  region.tabIndex = 0;
+  region.tabIndex = 0; region.id = id;
+  liveRegions.push(region);
   const table = node('table'), tbody = node('tbody');
   table.append(node('caption', `Unified diff of ${file.path}. Columns: old line, new line, change, text.`, 'sr-only'), tbody);
   for (const row of file.rows) {
@@ -216,8 +228,8 @@ function diffFile(file) {
 function sourceSection(rn, project, task) {
   const where = node('span', undefined, 'where');
   where.append(node('span', project?.full_name ?? NA, 'mono'), node('span', ` · ${task.adapter ?? NA} adapter`));
-  const rows = [pair('Repository', where), pair('Pinned commit', hashBlock(rn.base_sha, 'Copy pinned commit', `copy-commit-${rn.id}`))];
-  return lettered(`sec-source-${rn.id}`, 'A', 'Source', 'What the change was based on', definitions(...rows));
+  where.className = 'where exh-where';
+  return lettered(`sec-source-${rn.id}`, 'A', 'Source', 'What the change was based on', where, definitions(pair('Pinned commit', hashBlock(rn.base_sha, 'Copy pinned commit', `copy-commit-${rn.id}`))));
 }
 function patchSection(rn, detail) {
   const content = [definitions(pair('Patch SHA-256', hashBlock(rn.patch_sha256, 'Copy patch SHA-256', `copy-patch-${rn.id}`)))];
@@ -225,7 +237,7 @@ function patchSection(rn, detail) {
   else if (!detail) content.push(node('p', 'Loading the patch…', 'plain-line'));
   else if (detail.error) content.push(node('p', `The patch could not be loaded: ${detail.error}`, 'plain-line'));
   else {
-    content.push(...patchFiles(detail.patch ?? '').map(diffFile));
+    content.push(...patchFiles(detail.patch ?? '').map((file, index) => diffFile(file, `diff-${rn.id}-${index}`)));
     if (detail.patch) {
       const download = node('button', 'Download patch', 'btn btn-primary'); download.type = 'button'; download.id = `download-${rn.id}`;
       download.onclick = () => downloadPatch(detail);
@@ -233,12 +245,12 @@ function patchSection(rn, detail) {
       content.push(bar);
     } else content.push(node('p', 'No patch produced.', 'plain-line'));
   }
-  return lettered(`sec-patch-${rn.id}`, 'B', 'Patch', 'Exactly what changed', ...content);
+  return lettered(`sec-patch-${rn.id}`, 'B', 'Patch', 'Exactly what changed', null, ...content);
 }
 function checkItem(check) {
   const item = node('li', undefined, check.status === 'passed' ? '' : 'check-failed'), text = node('div');
   const isEdit = check.name.startsWith('edit:');
-  text.append(node('strong', checkName(check.name)), node('code', check.name), node('p', isEdit && check.status === 'passed' ? 'The text to replace was found exactly once and was replaced.' : (check.detail || NA)));
+  text.append(node('strong', checkName(check.name)), node('code', check.name), node('p', isEdit && check.status === 'passed' ? 'The text to replace was found once and was replaced.' : (check.detail || NA)));
   item.append(mark(check.status === 'passed' ? 'passed' : 'failed'), text);
   return item;
 }
@@ -248,10 +260,10 @@ function checksSection(rn) {
   list.append(...checks.map(checkItem));
   if (!checks.length) list.append(node('li', 'No checks were recorded for this run.', 'no-checks'));
   const notRun = node('li', undefined, 'notrun'), text = node('div');
-  text.append(node('strong', 'Project tests'), node('code', 'not part of Forge'), node('p', "Not run. Forge does not run your project's tests, so beyond the checks above this change is untested."));
+  text.append(node('strong', 'Project tests'), node('code', 'not part of Forge'), node('p', "Not run. Forge does not run project tests, so beyond the checks above this change is untested."));
   notRun.append(mark('notrun'), text);
   list.append(notRun);
-  return lettered(`sec-checks-${rn.id}`, 'C', 'Checks', 'What was checked, and what was not', list);
+  return lettered(`sec-checks-${rn.id}`, 'C', 'Checks', 'What was checked, and what was not', null, list);
 }
 function failureHelp(rn, later) {
   const box = node('div', undefined, 'fix');
@@ -271,32 +283,33 @@ function runRows(rn, project, task, latest, later) {
   verdict.append(mark(rn.status), node('p', rn.summary || (active ? 'Preparing a pinned source snapshot…' : NA)));
   const body = [node('h2', `${title} · ${active ? 'in progress' : latest ? 'latest' : 'kept as recorded'}`, 'ev-kind'), verdict];
   if (active) {
-    const cancel = node('button', 'Cancel run', 'btn'); cancel.type = 'button';
+    const cancel = node('button', 'Cancel run', 'btn'); cancel.type = 'button'; cancel.id = `cancel-${rn.id}`;
     cancel.onclick = () => run(cancel, async () => { await api(`/api/runs/${rn.id}/cancel`, {}); await refresh(); message('Run cancelled.'); });
     const actions = node('div', undefined, 'actions'); actions.append(cancel); body.push(actions);
   }
   const end = entry({ iso: active ? rn.created_at : (rn.finished_at || rn.created_at), status: rn.status, body, className: 'run-end' });
-  end.id = `run-${rn.id}`;
+  end.id = latest || active ? `run-${rn.id}` : `run-end-${rn.id}`;
   const rows = [end];
   if (!active) {
-    if (hasEvidence(rn)) {
-      const sections = [sourceSection(rn, project, task), patchSection(rn, runDetails.get(rn.id)), checksSection(rn)];
-      if (latest) rows.push(...sections);
-      else {
-        const details = node('details', undefined, 'run-evidence'); details.id = `evidence-${rn.id}`;
-        details.open = openRuns.has(rn.id);
-        details.ontoggle = () => { if (details.open) openRuns.add(rn.id); else openRuns.delete(rn.id); };
-        details.append(node('summary', `Evidence for ${title.toLowerCase()}: source, patch and checks`), ...sections);
-        rows.push(details);
-      }
-    } else {
+    if (hasEvidence(rn)) rows.push(sourceSection(rn, project, task), patchSection(rn, runDetails.get(rn.id)), checksSection(rn));
+    else {
       const none = plainRow([definitions(pair('Pinned commit', hashBlock(rn.base_sha, 'Copy pinned commit', `copy-commit-${rn.id}`)), pair('Patch', plainValue('No patch produced.')), pair('Patch SHA-256', plainValue(NA))), failureHelp(rn, later)], 'no-evidence');
       rows.push(none);
     }
   }
   return rows;
 }
-const startRow = rn => entry({ iso: rn.created_at, body: [node('span', `Run ${numbers.get(rn.id)}`, 'ev-kind'), node('h3', 'Run started')], className: 'run-start' });
+// An earlier run is one line in the trail; its full rows open inside a native details element.
+function foldedRun(rn) {
+  const details = node('details', undefined, 'run-fold'); details.id = `run-${rn.id}`;
+  details.open = openRuns.has(rn.id);
+  details.ontoggle = () => { if (details.open) openRuns.add(rn.id); else openRuns.delete(rn.id); };
+  const summary = node('summary'); summary.id = `run-summary-${rn.id}`;
+  summary.append(mark(rn.status), node('strong', `Run ${numbers.get(rn.id)}`), node('span', clock(rn.finished_at || rn.created_at), 'mono when'), node('span', rn.patch_sha256 ? `Patch SHA-256 ${shortHash(rn.patch_sha256)}` : (rn.summary || NA), 'fold-line'));
+  details.append(summary);
+  return details;
+}
+const startRow = rn => entry({ iso: rn.created_at, body: [node('h3', `Run ${numbers.get(rn.id)} started`)], className: 'run-start' });
 
 function timelineEvents(task, runs) {
   const events = [];
@@ -316,16 +329,21 @@ function buildTrail(task, runs, project) {
   let zone = '';
   try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* time zone unknown */ }
   const label = node('div', undefined, 'trail-label');
-  label.append(node('span', 'Time'), node('p', zone ? `Record, newest first · times in ${zone}` : 'Record, newest first'));
+  label.append(node('span', 'Time'), node('p', zone ? `Record, newest first · times in ${zone}` : 'Record, newest first'), node('p', RECORD_NOTE, 'record-note'));
   trail.append(label);
   const events = timelineEvents(task, runs);
   const gapFor = event => { const next = events[events.indexOf(event) + 1]; return next ? elapsed(event.iso, next.iso) : null; };
   const withGap = (rows, event) => { const text = gapFor(event), last = rows.at(-1); if (text && last) last.append(gapPill(text)); return rows; };
-  const latest = runs.at(-1);
+  const latest = runs.at(-1), folds = new Map();
+  const place = (rn, rows) => {
+    if (rn === latest || isActive(rn)) { trail.append(...rows); return; }
+    if (!folds.has(rn.id)) { folds.set(rn.id, foldedRun(rn)); trail.append(folds.get(rn.id)); }
+    folds.get(rn.id).append(...rows);
+  };
   for (const event of events.filter(e => e.type === 'end' || e.type === 'start')) {
-    if (event.type === 'start') { trail.append(...withGap([startRow(event.run)], event)); continue; }
+    if (event.type === 'start') { place(event.run, withGap([startRow(event.run)], event)); continue; }
     const later = runs.filter(r => numbers.get(r.id) > numbers.get(event.run.id));
-    trail.append(...withGap(runRows(event.run, project, task, event.run === latest, later), event));
+    place(event.run, withGap(runRows(event.run, project, task, event.run === latest, later), event));
   }
   // Approvals: one section, one letter, both recorded events.
   const approved = events.find(e => e.type === 'approved'), review = events.find(e => e.type === 'review');
@@ -334,7 +352,7 @@ function buildTrail(task, runs, project) {
   const first = approved ?? review;
   if (first) {
     const describe = event => event.type === 'approved'
-      ? [node('h4', 'Plan approved'), node('p', 'Approved by: not available. Forge records that the plan was approved, not who approved it.')]
+      ? [node('h4', 'Plan approved'), node('p', 'Approved by: not available. Forge records the approval, not who gave it.')]
       : [node('h4', 'Review requested'), node('p', 'The plan was put forward for review.')];
     const firstRow = entry({ iso: first.iso, body: [header, ...describe(first)], className: 'approval with-head' });
     group.append(...withGap([firstRow], first));
@@ -346,7 +364,8 @@ function buildTrail(task, runs, project) {
   const details = node('details', undefined, 'earlier'); details.id = 'earlier-events';
   details.open = earlierOpen || !runs.length;
   details.ontoggle = () => { if (runs.length) earlierOpen = details.open; };
-  details.append(node('summary', `Earlier in this record: ${plural(earlier.length, 'event')}`));
+  const earlierSummary = node('summary', `Earlier in this record: ${plural(earlier.length, 'event')}`); earlierSummary.id = 'earlier-summary';
+  details.append(earlierSummary);
   for (const event of earlier) {
     const body = event.type === 'plan'
       ? [node('span', 'Plan', 'ev-kind'), node('h3', 'Plan generated'), node('p', 'A dry-run plan of the steps. Nothing was changed when it was written.')]
@@ -362,17 +381,17 @@ function evidenceSummary(task, runs, project) {
   const nav = node('nav', undefined, 'summary'); attr(nav, 'aria-label', 'Evidence summary');
   const sectioned = latest && hasEvidence(latest);
   const target = suffix => sectioned ? `#sec-${suffix}-${latest.id}` : latest ? `#run-${latest.id}` : '#sec-approvals';
-  const cell = (label, value, sub, href) => {
-    const link = node('a', undefined, 'cell'); link.href = href;
+  const cell = (label, value, sub, href, id) => {
+    const link = node('a', undefined, 'cell'); link.href = href; link.id = id;
     link.append(node('span', label, 'cell-label'), node('strong', value, value === NA ? 'na' : ''), node('span', sub, 'cell-sub'));
     return link;
   };
   const active = latest && isActive(latest);
   nav.append(
-    cell('Source', shortHash(latest?.base_sha), latest ? (project?.full_name ?? NA) : 'Pinned when a run starts', target('source')),
-    cell('Patch', !latest || active ? NA : latest.patch_sha256 ? shortHash(latest.patch_sha256) : 'No patch produced', 'SHA-256', target('patch')),
-    cell('Checks', !latest || active ? NA : tallyChecks(latest), 'Static checks only', target('checks')),
-    cell('Approval', approved ? 'Plan approved' : 'Not approved', approved ? `${clock(approved.created_at)} · ${dayOf(approved.created_at)}` : 'No approval recorded', '#sec-approvals')
+    cell('Source', shortHash(latest?.base_sha), latest ? (project?.full_name ?? NA) : 'Pinned when a run starts', target('source'), 'cell-source'),
+    cell('Patch', !latest || active ? NA : latest.patch_sha256 ? shortHash(latest.patch_sha256) : 'No patch produced', 'SHA-256', target('patch'), 'cell-patch'),
+    cell('Checks', !latest || active ? NA : tallyChecks(latest), 'Static checks only', target('checks'), 'cell-checks'),
+    cell('Approval', approved ? 'Plan approved' : 'Not approved', approved ? `${clock(approved.created_at)} · ${dayOf(approved.created_at)}` : 'No approval recorded', '#sec-approvals', 'cell-approval')
   );
   return nav;
 }
@@ -381,7 +400,7 @@ function runsList(runs) {
   const heading = node('h2', `Runs on this task: ${runs.length}`); heading.id = 'runs-h';
   const list = node('ul');
   [...runs].reverse().forEach(rn => {
-    const item = node('li'), link = node('a'); link.href = `#run-${rn.id}`;
+    const item = node('li'), link = node('a'); link.href = `#run-${rn.id}`; link.id = `run-link-${rn.id}`;
     link.append(node('strong', `Run ${numbers.get(rn.id)}`), mark(rn.status), node('span', rn.status === 'passed' ? `Patch SHA-256 ${shortHash(rn.patch_sha256)}` : (rn.summary || NA), 'run-line'), node('time', clock(rn.finished_at || rn.created_at), 'mono'));
     link.onclick = event => { event.preventDefault(); showResult(rn.id, link); };
     item.append(link); list.append(item);
@@ -394,7 +413,7 @@ function stepButton(task) {
   const actions = [];
   const next = { queued: ['plan', 'Generate plan'], planned: ['review', 'Request review'], in_review: ['approve', 'Approve plan'] }[task.status];
   if (next) {
-    const button = node('button', next[1], 'btn btn-primary'); button.type = 'button';
+    const button = node('button', next[1], 'btn btn-primary'); button.type = 'button'; button.id = `task-${task.id}-step`;
     button.onclick = () => run(button, async () => {
       await api(`/api/tasks/${task.id}/${next[0]}`, { version: task.version });
       await refresh(); message(`${task.title}: ${next[1]} completed. No code was executed or published.`);
@@ -443,7 +462,7 @@ function buildRecord(task) {
   const actions = node('div', undefined, 'actions head-actions'); actions.append(...stepButton(task));
   if (task.status === 'approved' && !runs.length) actions.append(node('span', 'Plan approved · execution not started', 'head-note'));
   top.append(node('p', `Change record · ${project?.full_name ?? NA}`, 'eyebrow'), actions);
-  head.append(top, row, node('p', 'Forge applies exact edits that you provide. It does not write code with an AI model. Its checks are static; project tests are not run. It runs locally for one user; nothing is published or merged. The record is local and its hashes are not signed.', 'limits-line'), evidenceSummary(task, runs, project));
+  head.append(top, row, node('p', 'Forge applies exact edits that you provide. It does not write code with an AI model. Its checks are static; project tests are not run. It runs locally for one user; nothing is published or merged.', 'limits-line'), evidenceSummary(task, runs, project));
   if (runs.length > 1) head.append(runsList(runs));
   sheet.append(head, buildTrail(task, runs, project));
   return sheet;
@@ -466,7 +485,7 @@ function emptyRecord() {
   for (const [letter, title, sub] of [['A', 'Source', 'What the change was based on'], ['B', 'Patch', 'Exactly what changed'], ['C', 'Checks', 'What was checked, and what was not'], ['D', 'Approvals', 'When the plan was reviewed and approved']]) {
     const item = node('li'); item.append(attr(node('span', letter, 'exh-letter'), 'aria-hidden', 'true'), node('strong', title), node('span', sub)); parts.append(item);
   }
-  const body = node('div', undefined, 'sheet-foot'); body.append(node('h2', 'Each record shows', 'sect-title'), parts, node('h2', 'What Forge does not do', 'sect-title'), list, node('p', 'The record is local and its hashes are not signed. It is evidence to read, not proof against tampering.', 'sub'));
+  const body = node('div', undefined, 'sheet-foot'); body.append(node('h2', 'Each record shows', 'sect-title'), parts, node('h2', 'What Forge does not do', 'sect-title'), list, node('p', `${RECORD_NOTE} It is evidence to read, not proof against tampering.`, 'sub'));
   sheet.append(head, body);
   return sheet;
 }
@@ -490,13 +509,16 @@ function renderRail() {
     button.onclick = () => { selectedTaskId = task.id; earlierOpen = false; render(); };
     return button;
   }));
-  $('#adapters').replaceChildren(...state.adapters.map(adapter => { const item = node('p', undefined, 'conn'); item.append(node('strong', adapter.name), node('span', ` ${adapter.status.replaceAll('-', ' ')}`)); return item; }),
-    node('p', `GitHub: ${state.integration.github} · Webhooks: ${state.integration.webhook ? 'configured' : 'not configured'}`, 'repo-meta'));
+  const planned = state.adapters.filter(adapter => adapter.status === 'planned');
+  const plannedBlock = planned.length ? [node('h3', 'Planned, not available', 'conn-head'), ...planned.map(adapter => node('p', adapter.name, 'conn')), node('p', 'No compatibility is claimed.', 'repo-meta')] : [];
+  $('#adapters').replaceChildren(...workingAdapters().map(adapter => { const item = node('p', undefined, 'conn'); item.append(node('strong', adapter.name), node('span', ` ${adapter.status.replaceAll('-', ' ')}`)); return item; }),
+    node('p', `GitHub: ${state.integration.github} · Webhooks: ${state.integration.webhook ? 'configured' : 'not configured'}`, 'repo-meta'), ...plannedBlock);
   $('#pulls').replaceChildren(...state.pullRequests.map(pr => {
     const card = node('p', undefined, 'conn'); const link = node('a', `#${pr.number} ${pr.title}`); link.href = pr.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
     card.append(node('span', `${pr.state} `, 'badge'), link, node('span', ` head ${pr.head_sha.slice(0, 7)}`)); return card;
   }));
 }
+const workingAdapters = () => state.adapters.filter(adapter => adapter.status !== 'planned');
 function visibleTasks() { return selectedProjectId === 'all' ? state.tasks : state.tasks.filter(t => t.project_id === selectedProjectId); }
 
 function loadDetails(runs) {
@@ -510,16 +532,39 @@ function loadDetails(runs) {
   }
 }
 
+// What a re-render must not disturb: the focused control, the scroll of the page and of every diff region.
+function captureView() {
+  const active = document.activeElement, win = globalThis.window;
+  return { active, id: active?.id || '', scrolls: new Map(liveRegions.map(el => [el.id, [el.scrollLeft || 0, el.scrollTop || 0]])), x: win?.scrollX || 0, y: win?.scrollY || 0 };
+}
+const FOCUS_FALLBACKS = [[/^task-(.+)-step$/, m => [`task-${m[1]}-run`, `task-${m[1]}-plan`]], [/^cancel-/, () => []]];
+function restoreView(view) {
+  for (const region of liveRegions) {
+    const saved = view.scrolls.get(region.id);
+    if (saved) { region.scrollLeft = saved[0]; region.scrollTop = saved[1]; }
+  }
+  if (view.id && view.active && !view.active.isConnected && typeof document.getElementById === 'function') {
+    const extra = FOCUS_FALLBACKS.flatMap(([pattern, ids]) => { const m = pattern.exec(view.id); return m ? ids(m) : []; });
+    for (const id of [view.id, ...extra, 'workflow-heading']) {
+      const again = document.getElementById(id);
+      if (again) { again.focus({ preventScroll: true }); if (document.activeElement === again) break; }
+    }
+  }
+  const win = globalThis.window;
+  if (win?.scrollTo && (win.scrollX !== view.x || win.scrollY !== view.y)) win.scrollTo(view.x, view.y);
+}
+
 function render() {
+  const view = captureView();
   const focusReturn = focusReturns.get(document.activeElement);
-  const focusedId = document.activeElement?.id;
+  liveRegions.length = 0;
   $('#new-task').disabled = !state.projects.length;
   const creationProject = $('#project'); const creationProjectId = creationProject.value;
   creationProject.replaceChildren(...state.projects.map(p => { const option = node('option', p.full_name); option.value = p.id; return option; }));
   if (state.projects.some(p => p.id === creationProjectId)) creationProject.value = creationProjectId;
   const adapterSelect = $('#adapter'); const adapterId = adapterSelect.value;
-  adapterSelect.replaceChildren(...state.adapters.map(a => { const option = node('option', `${a.name} (${a.status.replaceAll('-', ' ')})`); option.value = a.id; return option; }));
-  if (state.adapters.some(a => a.id === adapterId)) adapterSelect.value = adapterId;
+  adapterSelect.replaceChildren(...workingAdapters().map(a => { const option = node('option', `${a.name} (${a.status.replaceAll('-', ' ')})`); option.value = a.id; return option; }));
+  if (workingAdapters().some(a => a.id === adapterId)) adapterSelect.value = adapterId;
   const filterSelect = $('#filter-project');
   if (filterSelect) {
     const currentVal = selectedProjectId;
@@ -551,11 +596,9 @@ function render() {
   const railLimits = $('#lim-h').parentElement; // the empty record already states the limits
   if (railLimits) railLimits.hidden = !task;
   // A submission or polling refresh can replace the button after a dialog closes.
-  if (focusReturn && !document.querySelector('dialog[open]')) restoreFocus(focusReturn);
-  else if (focusedId && !document.querySelector('dialog[open]') && typeof document.getElementById === 'function') {
-    const again = document.getElementById(focusedId);
-    if (again && again !== document.activeElement) again.focus();
-  }
+  if (document.querySelector('dialog[open]')) return;
+  if (focusReturn && !view.active?.isConnected) restoreFocus(focusReturn);
+  restoreView(view);
 }
 function rememberFocus(trigger, id, fallbackIds) {
   trigger.id = id;
@@ -603,8 +646,8 @@ async function showResult(id, trigger) {
     if (result.task_id) selectedTaskId = result.task_id;
     openRuns.add(id);
     if (state) render();
-    const target = typeof document.getElementById === 'function' ? document.getElementById(`sec-patch-${id}`) ?? document.getElementById(`run-${id}`) : null;
-    if (target) { target.tabIndex = -1; target.scrollIntoView({ block: 'start' }); target.focus(); }
+    const target = typeof document.getElementById === 'function' ? document.getElementById(`sec-patch-${id}`) ?? document.getElementById(`run-summary-${id}`) ?? document.getElementById(`run-${id}`) : null;
+    if (target) { if (target.tagName.toLowerCase() !== 'summary') target.tabIndex = -1; target.scrollIntoView({ block: 'start' }); target.focus(); }
   } catch (error) { message(error.message); }
 }
 function showPlan(task, trigger) {
@@ -747,8 +790,6 @@ refresh().catch(error => message(error.message));
 setInterval(async () => {
   if (!state?.runs?.some(isActive) || document.querySelector('dialog[open]')) return;
   try {
-    const next = await api('/api/state');
-    // Rebuild only when something changed, so keyboard focus and scroll position stay put.
-    if (JSON.stringify(next) !== JSON.stringify(state)) { state = next; render(); }
+    applyState(await api('/api/state'));
   } catch (error) { message(error.message); }
 }, 1500);

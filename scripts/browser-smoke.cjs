@@ -14,7 +14,7 @@ const fs = require('node:fs');
     await page.getByRole('status').filter({ hasText: 'GitHub repository connected.' }).waitFor({ timeout: 30000 });
     await page.locator('#new-task').click();
     await page.locator('#title').fill('Demo: validate the GitHub-connected workflow');
-    await page.locator('#intent').fill('Acceptance walkthrough only. Generate a plan, request review and approve the specification. Do not execute agents or modify the upstream repository.');
+    await page.locator('#intent').fill('Acceptance walkthrough only. Generate a plan, request review and approve the specification. Do not run anything or modify the upstream repository.');
     await page.getByRole('button', { name: 'Create task', exact: true }).click();
     await page.getByRole('button', { name: 'Generate plan', exact: true }).first().click();
     await page.getByRole('button', { name: 'Request review', exact: true }).first().click();
