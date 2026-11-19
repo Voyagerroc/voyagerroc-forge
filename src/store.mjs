@@ -98,12 +98,17 @@ function openLockedStore(filename, release) {
     const row = db.prepare('SELECT * FROM runs WHERE id=?').get(id);
     return row ? { ...row, checks: JSON.parse(row.checks) } : null;
   };
+  // Events carry their task in the JSON detail. Selecting by task keeps every
+  // event of a task, unlike the 50-event project window in snapshot().events.
+  const taskEvents = taskId => db.prepare(
+    "SELECT id, kind, created_at, json_extract(detail,'$.runId') AS run_id FROM events WHERE json_extract(detail,'$.taskId')=? ORDER BY id ASC"
+  ).all(taskId);
   return {
     close() { try { db.close(); } finally { release(); } }, getProject, getTask, getRun,
     snapshot() {
       return {
         projects: db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all(),
-        tasks: db.prepare('SELECT id FROM tasks ORDER BY created_at DESC').all().map(r => getTask(r.id)),
+        tasks: db.prepare('SELECT id FROM tasks ORDER BY created_at DESC').all().map(r => ({ ...getTask(r.id), events: taskEvents(r.id) })),
         pullRequests: db.prepare('SELECT * FROM pull_requests ORDER BY updated_at DESC').all(),
         runs: db.prepare('SELECT id FROM runs ORDER BY created_at DESC LIMIT 50').all().map(r => {
           const { patch, ...metadata } = getRun(r.id); return { ...metadata, has_patch: Boolean(patch) };
