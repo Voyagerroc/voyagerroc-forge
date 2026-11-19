@@ -1,6 +1,6 @@
 # Roadmap
 
-Direction: **a change that carries its own proof.** Writing a change has become cheap; trusting it has not. Forge's answer is a change that records what it was based on, exactly what changed, what was checked, what was not, and when its plan was approved, so that anyone can re-check it without trusting whoever produced it.
+Direction: **a change that carries its own proof.** Writing a change has become cheap; trusting it has not. Forge's answer is a change that records what it was based on, exactly what changed, what was checked and what was not, and when its plan was approved. Anyone can re-check the source, the exact change and the static checks without trusting whoever produced it; the approval time and the intent are recorded but cannot be verified.
 
 This is a contribution map, not a delivery-date promise. Items under "Next" and "Later" are plans, not features.
 
@@ -26,6 +26,7 @@ This is a contribution map, not a delivery-date promise. Items under "Next" and 
   - [ ] One backend with real exit codes and log provenance
   - [ ] Cancellation, cleanup and crash recovery for that backend
 - [ ] Draft pull request tied to the exact reviewed patch hash, with least-privilege write permission, idempotent writes and no automatic merge
+- [ ] Adapters for `open_scion` and Google Scion. Nothing is implemented and no date is set: the API and the interface list them as placeholders with status `planned`, and no compatibility is claimed. Forge has no verified contract with either system, so the [adapter contract](docs/ADAPTER-CONTRACT.md) stays a proposal until a working implementation justifies it.
 - [ ] If a hosted part ever comes, a thin service for evidence pages and verification. User code does not run on it.
 
 ## The 90-day test
@@ -39,7 +40,6 @@ Good first work is usually bounded: a reproduction of friction in the two-minute
 ## Not planned
 
 - **AI code generation inside Forge.** The direction is proof for a change, whoever or whatever wrote it; a generator would add a claim Forge cannot check.
-- **Adapters for `open_scion` and Google Scion.** They are separate systems that Forge has no verified contract with; the [adapter contract](docs/ADAPTER-CONTRACT.md) stays a proposal until a working implementation justifies it.
 - **Hosted multi-user operation** (login, tenants, durable queues). It is not needed for the direction, and the local, single-user boundary is what keeps the security model small.
 - **A format of our own for signatures.** Existing standards are better understood and already supported.
 

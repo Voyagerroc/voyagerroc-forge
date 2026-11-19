@@ -4,7 +4,7 @@
 
 ### A change that carries its own proof.
 
-Writing a change has become cheap. Trusting it has not. Forge records each change together with what it was based on, exactly what changed, what was checked, what was not checked, and when its plan was approved. Anyone can re-check that record without trusting whoever produced it.
+Writing a change has become cheap. Trusting it has not. Forge records each change together with what it was based on, exactly what changed, what was checked, what was not checked, and when its plan was approved. Anyone can re-check the source, the exact change and the static checks without trusting whoever produced it. The approval time, the intent and the other times are recorded but cannot be verified; the verifier lists them as such.
 
 **Status:** v0.3.0 pre-release · MIT · single user · local only
 
@@ -46,15 +46,15 @@ Stop the server with Ctrl+C. `npm start` starts the ordinary workspace without t
 
 On a narrow screen the record keeps the same order:
 
-![The same record at 390 pixels wide, with the summary cells, runs list and timeline stacked in one column](docs/assets/record-mobile.png)
+![The same record at 390 pixels wide, with the four summary cells in a two-by-two grid, followed by the runs list and the timeline in one column](docs/assets/record-mobile.png)
 
 ## Check the evidence yourself
 
 A finished run can be exported as a portable bundle and checked by someone who does not trust the server that produced it. With the demo still running, take the run id from the `runs` list of `GET /api/state` (open http://127.0.0.1:4317/api/state), then:
 
 ```sh
-npm run evidence:export -- --run <run id> --out evidence.json
-npm run evidence:verify -- evidence.json --repo data/demo-repository
+npm run evidence:export -- --run <run id> --out data/evidence.json
+npm run evidence:verify -- data/evidence.json --repo data/demo-repository
 ```
 
 This is the output of those commands for a passed demo run (the commit and times differ on every machine):
@@ -140,7 +140,7 @@ These are plans, not features. See the [roadmap](ROADMAP.md).
 
 ## Contribute
 
-Five outside contributors have had eleven pull requests merged. Good pull requests are small, come with a failing test first where a rule changes, and show the commands you ran with their real results. Start with the [try it](#try-it-in-two-minutes) steps and report anything that confused you, pick an issue by [label](https://github.com/Voyagerroc/voyagerroc-forge/labels), or ask in an issue before starting something large. The maintainer answers within 72 hours. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md). No CLA or DCO sign-off is required; contributions are under the MIT license.
+Five outside contributors have had eleven pull requests merged. Good pull requests are small, come with a failing test first where a rule changes, and show the commands you ran with their real results. Start with the [try it](#try-it-in-two-minutes) steps and report anything that confused you, pick an issue by [label](https://github.com/Voyagerroc/voyagerroc-forge/labels), or ask in an issue before starting something large. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md). No CLA or DCO sign-off is required; contributions are under the MIT license.
 
 ## Development
 

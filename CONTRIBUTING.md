@@ -23,7 +23,7 @@ Draft pull requests are welcome. Use the pull request template.
 
 ## What the maintainer commits to
 
-- A first answer to an issue or pull request within 72 hours.
+- A first answer to an issue or pull request, with no promised time.
 - A review that reads the diff and runs the tests before anything is merged. A pull request is merged when its diff is understood and the tests pass, not before.
 - The project never asks for stars or any other favour in return for a review or a merge, and a review does not depend on one.
 

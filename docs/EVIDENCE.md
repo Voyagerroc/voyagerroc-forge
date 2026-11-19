@@ -132,7 +132,7 @@ This bundle was exported from a run against the demo repository (`npm run demo:r
     },
     "tool": {
       "name": "voyagerroc-forge",
-      "version": "0.2.2"
+      "version": "0.3.0"
     }
   },
   "predicateType": "https://github.com/Voyagerroc/voyagerroc-forge/blob/main/docs/EVIDENCE.md#v1",
@@ -167,7 +167,7 @@ intent                        RECORDED NOT VERIFIABLE  task title and text are w
 plan approval time            RECORDED NOT VERIFIABLE  2026-11-19T15:23:59.547Z; the bundle records the time only, and no one can recompute it
 run timestamps and events     RECORDED NOT VERIFIABLE  6 events and the run start and finish times are the server's own clock
 run summary                   RECORDED NOT VERIFIABLE  free text written by the server
-tool version                  RECORDED NOT VERIFIABLE  voyagerroc-forge 0.2.2
+tool version                  RECORDED NOT VERIFIABLE  voyagerroc-forge 0.3.0
 
 13 matched, 0 mismatched, 6 recorded not verifiable. The bundle is not signed: matches show that it is consistent, not who produced it.
 ```

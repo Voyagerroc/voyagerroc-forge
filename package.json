@@ -2,7 +2,7 @@
   "name": "voyagerroc-forge",
   "version": "0.3.0",
   "private": true,
-  "description": "A change that carries its own proof: pinned source, exact edits, patch, named checks and approval time in one record that anyone can re-check.",
+  "description": "A change that carries its own proof: pinned source, exact edits, patch and named static checks in one record, with the approval time recorded; source, patch and checks can be re-checked by anyone.",
   "license": "MIT",
   "repository": { "type": "git", "url": "https://github.com/Voyagerroc/voyagerroc-forge.git" },
   "bugs": { "url": "https://github.com/Voyagerroc/voyagerroc-forge/issues" },

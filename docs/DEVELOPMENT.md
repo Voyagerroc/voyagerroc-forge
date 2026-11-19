@@ -99,7 +99,7 @@ FORGE_DB=data/dialog-focus.sqlite PORT=4319 npm run demo:runner
 FORGE_URL=http://127.0.0.1:4319 node scripts/dialog-focus-smoke.cjs
 ```
 
-The script uses keyboard input for all UI actions at 1440px and 390px. It checks Escape, close buttons, successful forms, rejected JSON, visible focus and horizontal overflow against a real local scoped-edit run. Explicit state refreshes and temporary in-page state changes simulate replaced/disabled/removed triggers; these are UI regressions, not live concurrent-user evidence. Screenshots and the JSON report are written to ignored `qa/`.
+This script was written for the earlier interface. It has not been re-run against the record interface, so treat it as unverified until it is. The script uses keyboard input for all UI actions at 1440px and 390px. It checks Escape, close buttons, successful forms, rejected JSON, visible focus and horizontal overflow against a real local scoped-edit run. Explicit state refreshes and temporary in-page state changes simulate replaced/disabled/removed triggers; these are UI regressions, not live concurrent-user evidence. Screenshots and the JSON report are written to ignored `qa/`.
 
 ## Test scope
 
