@@ -45,7 +45,7 @@ The record shows the run as **Failed**. The evidence is in the page itself, not 
 - The latest result reads `Before text must match exactly once: hello.mjs`.
 - **Source** shows the pinned fixture commit; compare it with the HEAD recorded above.
 - **Patch SHA-256** is `not available` and the patch says `No patch produced.`
-- There are no named check records for this failure: validation stops before a patch or later static checks are produced.
+- No static check ran: validation stops before a patch is produced, so the record lists the checks as not run.
 
 On the same approved task, choose **Run scoped edits** again and submit the corrected JSON:
 

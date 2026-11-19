@@ -23,9 +23,9 @@ Draft pull requests are welcome. Use the pull request template.
 
 ## What the maintainer commits to
 
-- A first answer to an issue or pull request, with no promised time.
+- A first answer to every issue and pull request. No response time is promised: there is one maintainer.
 - A review that reads the diff and runs the tests before anything is merged. A pull request is merged when its diff is understood and the tests pass, not before.
-- The project never asks for stars or any other favour in return for a review or a merge, and a review does not depend on one.
+- A review or a merge never depends on anything other than the change itself.
 
 ## Pick an issue, or ask first
 

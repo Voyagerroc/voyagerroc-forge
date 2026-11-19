@@ -11,7 +11,7 @@ This is a contribution map, not a delivery-date promise. Items under "Next" and 
 - [x] Per-task recorded events in the state response (#34)
 - [x] 0.2.2 fixes: overlapping edit matches rejected, one live server per database file, the real version in `/api/health`, edit worker input limit aligned with the server (#28, #30, #31, #32), and request-protection tests (#29)
 - [x] Offline CI on Ubuntu and Windows (#24); accessible dialog names (#23); keyboard focus restoration (#19); runner limits shown before a run (#18); repository filter (#17); patch download (#16)
-- [x] Persistent intent → plan → review → approval; disposable pinned Git snapshots; exact edits; actual diffs, patch hashes and named static checks; cancellation and restart recovery; signed, deduplicated GitHub events
+- [x] Persistent intent → plan → review → approval; disposable pinned Git snapshots; exact edits; actual diffs, patch hashes and named static checks; cancellation and restart recovery; signature-verified, deduplicated GitHub webhook events
 
 ## Next
 

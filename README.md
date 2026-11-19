@@ -42,6 +42,8 @@ The demo repository stays unchanged, so you can repeat the exercise. To see a fa
 
 Stop the server with Ctrl+C. `npm start` starts the ordinary workspace without the demo source.
 
+A record with a failed and a corrected run looks like this (the screenshot shows another task on the same demo repository):
+
 ![A change record with a failed run and a corrected run: runs list, source, patch, checks including project tests marked not run, and the approval events](docs/assets/record-failed-and-corrected.png)
 
 On a narrow screen the record keeps the same order:
