@@ -224,6 +224,23 @@ test('cross-origin mutation, unknown adapters and missing projects are rejected'
   assert.equal((await call('/api/tasks', { projectId: 'missing', title: 'x', intent: 'x', adapter: 'invalid' })).status, 400);
   assert.equal((await call('/api/tasks', { projectId: 'missing', title: 'x', intent: 'x', adapter: 'github' })).status, 404);
 });
+
+test('planned adapters are rejected without recording a task or event', async t => {
+  const { call } = await fixture(t);
+  const project = await call('/api/projects', { repository: 'example/project' });
+  assert.equal(project.status, 201);
+  const before = (await call('/api/state')).data;
+  const rejected = await call('/api/tasks', {
+    projectId: project.data.id, title: 'Planned adapter', intent: 'Do not create this task', adapter: 'gcp-scion'
+  });
+  assert.equal(rejected.status, 400);
+  assert.match(rejected.data.error, /gcp-scion.*planned.*not available/i);
+  const after = (await call('/api/state')).data;
+  assert.deepEqual(after.tasks, before.tasks);
+  assert.deepEqual(after.events, before.events);
+  assert.equal(after.adapters.find(adapter => adapter.id === 'gcp-scion').status, 'planned');
+});
+
 test('requests with a foreign Host header are rejected for GET and POST', async t => {
   const { origin } = await fixture(t);
   const { port } = new URL(origin);
