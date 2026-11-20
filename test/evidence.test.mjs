@@ -11,7 +11,7 @@ import { openStore } from '../src/store.mjs';
 import { Runner } from '../src/runner.mjs';
 import { git, command } from '../src/runner-process.mjs';
 import { createApp } from '../src/server.mjs';
-import { buildEvidence, serializeEvidence, parseBundle, EvidenceInputError, VERIFY_GIT_ENV, STATEMENT_TYPE, PREDICATE_TYPE } from '../src/evidence.mjs';
+import { buildEvidence, serializeEvidence, parseBundle, EvidenceInputError, VERIFY_GIT_ENV, STATEMENT_TYPE, PREDICATE_TYPE, plainText, formatJson } from '../src/evidence.mjs';
 
 const cli = fileURLToPath(new URL('../scripts/evidence.mjs', import.meta.url));
 const execute = async args => {
@@ -252,6 +252,17 @@ test('7. unusable input exits 2 with a plain message and no stack trace', async 
 
 const patchFor = (path, extra = 'new file mode 100644\n') =>
   `diff --git a/${path} b/${path}\n${extra}--- /dev/null\n+++ b/${path}\n@@ -0,0 +1 @@\n+x\n`;
+
+test('renderer escapes Unicode format characters without changing printable text', () => {
+  const format = [0x00ad, 0x200b, 0x200c, 0x200d, 0x2060, 0xfeff, 0xe0041].map(code => String.fromCodePoint(code)).join('');
+  assert.equal(plainText(`a${format}b`), 'a\\u00ad\\u200b\\u200c\\u200d\\u2060\\ufeff\\u{e0041}b');
+  assert.equal(plainText('é日本語😀'), 'é日本語😀');
+
+  const encoded = formatJson({ text: `a${format}b`, printable: 'é日本語😀' });
+  assert.equal(/\p{Cf}/u.test(encoded), false);
+  assert.match(encoded, /\\udb40\\udc41/);
+  assert.deepEqual(JSON.parse(encoded), { text: `a${format}b`, printable: 'é日本語😀' });
+});
 
 test('7b. text from the bundle cannot change the table: escape sequences and line breaks are shown as escapes', async t => {
   const f = await fixture(t);

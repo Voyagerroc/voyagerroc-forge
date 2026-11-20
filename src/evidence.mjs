@@ -361,19 +361,28 @@ function report(claims) {
 
 // The table is read by a person in a terminal, and many of its words come from the bundle, which is
 // untrusted. Control characters (C0, DEL, C1: escape sequences, line breaks, tabs), line and paragraph
-// separators and bidirectional formatting characters are shown as a backslash, u and four hex digits, so
-// they can neither hide a row nor forge one. The --json output has its own step, formatJson.
+// separators, bidirectional formatting characters and all other Unicode format characters are shown as
+// escapes, so they can neither hide a row nor forge one. The --json output has its own step, formatJson.
 const isUnsafe = code => code <= 0x1f || (code >= 0x7f && code <= 0x9f) || code === 0x61c || code === 0x200e || code === 0x200f ||
-  code === 0x2028 || code === 0x2029 || (code >= 0x202a && code <= 0x202e) || (code >= 0x2066 && code <= 0x2069);
+  code === 0x2028 || code === 0x2029 || (code >= 0x202a && code <= 0x202e) || (code >= 0x2066 && code <= 0x2069) ||
+  /\p{Cf}/u.test(String.fromCodePoint(code));
 export const plainText = value => Array.from(String(value), ch => isUnsafe(ch.codePointAt(0))
-  ? '\\' + 'u' + ch.codePointAt(0).toString(16).padStart(4, '0') : ch).join('');
+  ? ch.codePointAt(0) > 0xffff ? '\\u{' + ch.codePointAt(0).toString(16) + '}' : '\\' + 'u' + ch.codePointAt(0).toString(16).padStart(4, '0') : ch).join('');
+
+const jsonEscape = code => {
+  if (code <= 0xffff) return '\\u' + code.toString(16).padStart(4, '0');
+  const scalar = code - 0x10000;
+  const high = 0xd800 + (scalar >> 10);
+  const low = 0xdc00 + (scalar & 0x3ff);
+  return '\\u' + high.toString(16) + '\\u' + low.toString(16);
+};
 
 // --json needs the same care as the table. JSON.stringify escapes the C0 controls, quotes, backslashes and lone
 // surrogates, but it writes DEL, the C1 controls, U+2028, U+2029 and the bidirectional controls as they are. They are
 // replaced by their JSON escape, so the output is still valid JSON that decodes to the same text.
 export const formatJson = result => Array.from(JSON.stringify(result, null, 2), ch => {
   const code = ch.codePointAt(0);
-  return code > 0x1f && isUnsafe(code) ? '\\' + 'u' + code.toString(16).padStart(4, '0') : ch;
+  return code > 0x1f && isUnsafe(code) ? jsonEscape(code) : ch;
 }).join('') + '\n';
 
 export function formatReport({ claims, summary }) {
