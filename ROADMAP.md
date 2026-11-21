@@ -15,7 +15,7 @@ This is a contribution map, not a delivery-date promise. Items under "Next" and 
 
 ## Next
 
-- [ ] Produce the evidence inside the maintainer's own GitHub Actions run and attach it to a pull request, so the proof arrives with the change
+- [ ] Produce the evidence inside the maintainer's own GitHub Actions run and attach it to a pull request, so the proof arrives with the change ([design note](docs/EVIDENCE-IN-CI.md))
 - [ ] Sign the evidence through existing standards (GitHub artifact attestations, Sigstore) instead of a format of its own, so a bundle also proves origin
 - [ ] Import a patch that was produced outside Forge and give it the same record and verification
 
