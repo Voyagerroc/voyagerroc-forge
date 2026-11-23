@@ -152,7 +152,7 @@ These are plans, not features. See the [roadmap](ROADMAP.md).
 
 ## Contribute
 
-Five outside contributors have had eleven pull requests merged. Good pull requests are small, come with a failing test first where a rule changes, and show the commands you ran with their real results. Start with the [try it](#try-it-in-two-minutes) steps and report anything that confused you, pick an issue by [label](https://github.com/Voyagerroc/voyagerroc-forge/labels), or ask in an issue before starting something large. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md). No CLA or DCO sign-off is required; contributions are under the MIT license.
+Pull requests from several outside contributors have already been merged. Good pull requests are small, come with a failing test first where a rule changes, and show the commands you ran with their real results. Start with the [try it](#try-it-in-two-minutes) steps and report anything that confused you, pick an issue by [label](https://github.com/Voyagerroc/voyagerroc-forge/labels), or ask in an issue before starting something large. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md). No CLA or DCO sign-off is required; contributions are under the MIT license.
 
 ## Development
 
