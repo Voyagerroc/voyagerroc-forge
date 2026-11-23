@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { command, git } from './runner-process.mjs';
-import { EDIT_LIMITS, editPath, validateEdits } from './edit-worker.mjs';
+import { EDIT_LIMITS, relativeFilePath, validateEdits } from './edit-worker.mjs';
 import { parseRepository } from './github.mjs';
 
 const worker = fileURLToPath(new URL('./edit-worker.mjs', import.meta.url));
@@ -38,7 +38,7 @@ export async function pinSnapshot(source, sha, root, signal, env) {
   const entries = tree.map(line => {
     const match = line.match(/^(\d+) (\w+) ([a-f0-9]{40})\s+(\d+|-)\t([\s\S]+)$/);
     if (!match || !['100644','100755'].includes(match[1]) || match[2] !== 'blob') throw new Error('Symlinks and submodules are not supported');
-    const path = editPath(match[5]); const size = Number(match[4]);
+    const path = relativeFilePath(match[5]); const size = Number(match[4]);
     if (!Number.isSafeInteger(size) || size > SNAPSHOT_LIMITS.maxFileBytes)
       throw new Error(`Source file exceeds ${SNAPSHOT_LIMITS.maxFileBytes / (1024 * 1024)} MiB`);
     return { path, size, blob: match[3] };

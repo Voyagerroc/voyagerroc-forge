@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { applyEdits } from '../src/edit-worker.mjs';
+import { applyEdits, validateEdits } from '../src/edit-worker.mjs';
 
 async function workspace(t, content) {
   const root = await mkdtemp(join(tmpdir(), 'forge edit worker '));
@@ -38,4 +38,22 @@ test('an empty before string is rejected during validation, before the file is r
   const root = await workspace(t, 'abc');
   assert.throws(() => applyEdits(root, [{ path: 'file.txt', before: '', after: 'x' }]), /nonempty before string/);
   assert.equal(await readFile(join(root, 'file.txt'), 'utf8'), 'abc');
+});
+
+test('short-name-shaped segments are rejected before any edit is written', async t => {
+  const root = await workspace(t, 'unchanged');
+  for (const path of ['GIT~1', 'PROGRA~1', 'FILE~1.TXT', 'a~12', 'src/GIT~1/config', 'src/giT~12/config']) {
+    assert.throws(() => applyEdits(root, [
+      { path: 'file.txt', before: 'unchanged', after: 'changed' },
+      { path, before: null, after: 'new content' }
+    ]), /Invalid or reserved relative file path/, path);
+    assert.equal(await readFile(join(root, 'file.txt'), 'utf8'), 'unchanged');
+  }
+});
+
+test('other tilde names remain valid edit paths', () => {
+  for (const path of ['file~backup.txt', 'a~b.md', 'tilde~.txt', 'longer-name~1.md', 'src/file~backup.txt']) {
+    assert.deepEqual(validateEdits([{ path, before: null, after: 'new content' }]),
+      [{ path, before: null, after: 'new content' }]);
+  }
 });
