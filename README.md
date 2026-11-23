@@ -4,7 +4,11 @@
 
 ### A change that carries its own proof.
 
+A local tool that keeps a code change together with its proof, so a reviewer can check what changed and what was tested without having to trust whoever made it.
+
 Writing a change has become cheap. Trusting it has not. Forge records each change together with what it was based on, exactly what changed, what was checked, what was not checked, and when its plan was approved. Anyone can re-check the source, the exact change and the static checks without trusting whoever produced it. The approval time, the intent and the other times are recorded but cannot be verified; the verifier lists them as such.
+
+**Türkçe özet:** Forge, bir kod değişikliğini dayandığı kaynak, tam fark (diff), yapılan kontroller ve plan onayı ile birlikte tek bir kayıtta saklayan yerel bir araçtır. Bu kayıt taşınabilir bir kanıt paketi olarak dışa aktarılabilir ve sunucuya güvenmeden başka biri tarafından bağımsız olarak doğrulanabilir. Proje şu an v0.3.0 ön sürüm (pre-release) aşamasındadır.
 
 **Status:** v0.3.0 pre-release · MIT · single user · local only
 
@@ -15,6 +19,12 @@ Writing a change has become cheap. Trusting it has not. Forge records each chang
 </div>
 
 ![The first screen of a Forge change record in the light theme: a passed run with its pinned source commit, patch SHA-256, checks and approval time, followed by the pinned commit and the diff](docs/assets/record-first-screen.png)
+
+## Who it is for
+
+- **Maintainers and reviewers** who want to see exactly what a proposed change touches and which checks it passed before trusting it.
+- **Developers building review or automation tooling** who need a portable, re-checkable record of a change (source commit, patch hash, check results).
+- **Anyone curious about verifiable changes**: the two-minute demo below runs locally with no account or API key.
 
 ## Try it in two minutes
 
