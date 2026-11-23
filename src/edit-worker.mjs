@@ -14,11 +14,18 @@ const MAX_WORKER_INPUT_BYTES = MAX_REQUEST_BYTES + 16 * 1024;
 
 export const EDIT_LIMITS = Object.freeze({ minCount: 1, maxCount: 20, maxTextBytes: 256 * 1024 });
 
-export function editPath(value) {
+export function relativeFilePath(value) {
   if (typeof value !== 'string' || value.length > 240 || !value || value.includes('\\') ||
       value.split('/').some(p => !p || p === '.' || p === '..' || p.toLowerCase() === '.git') ||
       /[\x00-\x1f<>:"|?*]/.test(value) || value.startsWith('/') ||
       value.split('/').some(p => /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(p) || /[. ]$/.test(p)))
+    throw new Error('Invalid or reserved relative file path');
+  return value;
+}
+export function editPath(value) {
+  relativeFilePath(value);
+  // Refuse possible Windows 8.3 aliases for writes, including directory segments.
+  if (value.split('/').some(p => /^[^.~]{1,6}~\d+(?:\..{1,3})?$/.test(p)))
     throw new Error('Invalid or reserved relative file path');
   return value;
 }

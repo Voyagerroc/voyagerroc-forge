@@ -212,6 +212,35 @@ test('snapshot preserves distinct mixed-case paths and shared directories', asyn
   assert.deepEqual(await sourceState(source), before);
 });
 
+test('snapshot still includes tracked short-name-shaped files', async t => {
+  const { runner, store, task, root, source } = await fixture(t);
+  const sha = await commitPaths(source, ['notes~1.md']);
+  const before = await sourceState(source);
+  const snapshotRoot = join(root, 'snapshot'); await mkdir(snapshotRoot);
+  const snapshot = await runner.snapshot(store.getProject(task.project_id), snapshotRoot, new AbortController().signal);
+  assert.equal(snapshot.sha, sha);
+  assert.equal(await readFile(join(snapshot.workspace, 'notes~1.md'), 'utf8'), 'Content of notes~1.md\n');
+  assert.deepEqual(await sourceState(source), before);
+});
+
+test('the run API rejects short-name-shaped edits with 400 before starting work', async t => {
+  const { runner, store, task } = await fixture(t);
+  const server = createApp({ store, runner });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  for (const path of ['GIT~1/config', 'src/FILE~1.TXT']) {
+    const response = await fetch(`${origin}/api/tasks/${task.id}/runs`, {
+      method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', 'X-Forge-Client': 'local-ui' },
+      body: JSON.stringify({ version: task.version, edits: [{ path, before: null, after: 'content' }] })
+    });
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /Invalid or reserved relative file path/);
+    assert.equal(runner.jobs.size, 0);
+    assert.equal(store.snapshot().runs.length, 0);
+  }
+});
+
 test('unsupported adapters, missing local config and stale plan versions fail closed', async t => {
   const { runner, task } = await fixture(t);
   assert.throws(() => runner.start(task.id, { version: task.version-1, edits: [edit] }), /Approve/);

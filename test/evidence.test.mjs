@@ -345,6 +345,20 @@ test('8. a patch that leaves the workspace, touches .git or changes modes and re
   assert.deepEqual(await treeState(f.source), before, 'the repository given with --repo is never written');
 });
 
+test('the verifier refuses short-name-shaped patch paths with exit 2', async t => {
+  const f = await fixture(t);
+  const before = await treeState(f.source);
+  for (const path of ['GIT~1/config', 'PROGRA~1/a.txt', 'src/FILE~1.TXT', 'a~12']) {
+    const bundle = structuredClone(f.bundle);
+    bundle.predicate.patch.text = patchFor(path);
+    rehash(bundle);
+    const result = await f.verify(bundle);
+    assert.equal(result.code, 2, result.out + result.err);
+    assert.match(result.err, /which the edit path rules reject/);
+  }
+  assert.deepEqual(await treeState(f.source), before);
+});
+
 test('8b. verification leaves the repository byte-for-byte untouched, also when it reports a mismatch', async t => {
   const f = await fixture(t);
   const before = await treeState(f.source);
