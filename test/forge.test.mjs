@@ -224,6 +224,29 @@ test('cross-origin mutation, unknown adapters and missing projects are rejected'
   assert.equal((await call('/api/tasks', { projectId: 'missing', title: 'x', intent: 'x', adapter: 'invalid' })).status, 400);
   assert.equal((await call('/api/tasks', { projectId: 'missing', title: 'x', intent: 'x', adapter: 'github' })).status, 404);
 });
+
+test('planned adapters cannot record tasks or events through the API', async t => {
+  const { call } = await fixture(t);
+  const project = (await call('/api/projects', { repository: 'example/project' })).data;
+  const before = (await call('/api/state')).data;
+  const planned = before.adapters.filter(adapter => adapter.status === 'planned');
+  assert.ok(planned.length > 0);
+  for (const adapter of planned) {
+    const result = await call('/api/tasks', {
+      projectId: project.id, title: 'Unavailable runner', intent: 'Check availability', adapter: adapter.id
+    });
+    assert.equal(result.status, 400);
+    assert.match(result.data.error, new RegExp(adapter.id));
+    assert.match(result.data.error, /planned.*not available/i);
+    const after = (await call('/api/state')).data;
+    assert.deepEqual(after.tasks, before.tasks);
+    assert.deepEqual(after.events, before.events);
+    assert.deepEqual(after.adapters, before.adapters);
+  }
+  assert.equal((await call('/api/tasks', {
+    projectId: project.id, title: 'Available adapter', intent: 'Read metadata', adapter: 'github'
+  })).status, 201);
+});
 test('requests with a foreign Host header are rejected for GET and POST', async t => {
   const { origin } = await fixture(t);
   const { port } = new URL(origin);

@@ -80,6 +80,7 @@ export function createApp({ store, github = new GitHubAdapter(), webhookSecret =
         const input = json(await body(req));
         const adapter = adapters.find(a => a.id === input.adapter);
         if (!adapter) throw fail('Unknown adapter');
+        if (adapter.status === 'planned') throw fail(`Adapter "${adapter.id}" is planned and not available`);
         return send(201, store.createTask({
           projectId: field(input.projectId, 'Project', 50), title: field(input.title, 'Title', 160),
           intent: field(input.intent, 'Intent', 5000), adapter: adapter.id
