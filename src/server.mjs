@@ -64,7 +64,8 @@ export function createApp({ store, github = new GitHubAdapter(), webhookSecret =
         const origin = req.headers.origin;
         if (![localOrigin, `http://localhost:${serverPort(res)}`].includes(origin) || req.headers['x-forge-client'] !== 'local-ui')
           throw fail('Local UI origin and client header required', 403);
-        if (!req.headers['content-type']?.startsWith('application/json')) throw fail('JSON content type required', 415);
+        const mediaType = req.headers['content-type']?.split(';', 1)[0].trim().toLowerCase();
+        if (mediaType !== 'application/json') throw fail('JSON content type required', 415);
       }
       if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, mode: 'local-mvp', version });
       if (req.method === 'GET' && url.pathname === '/api/state') return send(200, {
