@@ -129,15 +129,20 @@ function openLockedStore(filename, release, readOnly) {
     },
     connect(repo) {
       return transaction(() => {
-        const existing = db.prepare('SELECT * FROM projects WHERE full_name=?').get(repo.full_name);
+        const byGitHubId = (repo.source_kind ?? 'github') === 'github'
+          ? db.prepare("SELECT * FROM projects WHERE github_id=? AND source_kind='github'").get(repo.id) : null;
+        const existing = byGitHubId ?? db.prepare('SELECT * FROM projects WHERE full_name=?').get(repo.full_name);
         const id = existing?.id ?? randomUUID();
         db.prepare(`INSERT INTO projects(id,full_name,github_id,url,description,default_branch,private,created_at)
-          VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(full_name) DO UPDATE SET
-          github_id=excluded.github_id,url=excluded.url,description=excluded.description,
+          VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
+          full_name=excluded.full_name,github_id=excluded.github_id,url=excluded.url,description=excluded.description,
           default_branch=excluded.default_branch,private=excluded.private`).run(
           id, repo.full_name, repo.id, repo.html_url, repo.description ?? '', repo.default_branch,
           repo.private ? 1 : 0, new Date().toISOString());
         db.prepare('UPDATE projects SET source_kind=? WHERE id=?').run(repo.source_kind ?? 'github', id);
+        if (byGitHubId && byGitHubId.full_name !== repo.full_name)
+          db.prepare('UPDATE pull_requests SET url=? || number WHERE project_id=?')
+            .run(`https://github.com/${repo.full_name}/pull/`, id);
         event(id, 'repository.connected', { repository: repo.full_name });
         return getProject(id);
       });
