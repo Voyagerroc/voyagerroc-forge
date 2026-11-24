@@ -2,7 +2,7 @@
 // The bundle is shaped as an unsigned in-toto Statement v1 with a Forge-specific predicate.
 import { readFileSync } from 'node:fs';
 import { mkdtemp, mkdir, rm, realpath, lstat, readFile } from 'node:fs/promises';
-import { join, resolve, relative, isAbsolute } from 'node:path';
+import { join, resolve, relative, isAbsolute, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { isUtf8 } from 'node:buffer';
@@ -316,7 +316,7 @@ export async function verifyEvidence(bundle, repository, { timeoutMs = 120000 } 
     for (const path of paths) {
       const target = resolve(workspace, path);
       const rel = relative(workspace, target);
-      if (rel.startsWith('..') || isAbsolute(rel)) throw refuse('a path leaves the workspace');
+      if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw refuse('a path leaves the workspace');
       const info = await lstat(target);
       if (!info.isFile()) throw refuse(`${path} is not a regular file after applying the patch`);
       const bytes = await readFile(target);
