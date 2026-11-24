@@ -82,6 +82,8 @@ The runner browser check also opens the run dialog using the keyboard at 390px, 
 
 In a completed run's record, **Download patch** saves the exact returned diff as a local UTF-8 `.patch` file. It does not apply the patch or write upstream. For a browser acceptance check, Tab to the button and activate it with Enter, compare the downloaded bytes and SHA-256 with the run's API evidence, then open a no-patch result and confirm the action is absent. Repeat at a 390px viewport. `npm run check` covers line endings, Unicode, final-newline preservation, filename bounds, deferred URL cleanup and action availability with a stubbed DOM; a real browser download remains a separate check.
 
+If a patch request fails, **Retry loading patch** makes another request for that run. The patch section shows loading feedback and retains keyboard focus, then displays the patch or a fresh retry action. Re-rendering the record does not retry failures automatically. For a browser check, temporarily fail the run-detail response, activate retry with Enter, and verify recovery and a second failure at desktop and 390px widths.
+
 `scripts/browser-smoke.cjs` imports public metadata and exercises the planning UI. `scripts/public-runner-smoke.mjs` additionally resolves/fetches a small real public GitHub source and creates a local-only patch. These two scripts require network access and are not in the offline CI suite.
 
 ### Dialog keyboard walkthrough
