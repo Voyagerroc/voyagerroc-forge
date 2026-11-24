@@ -53,7 +53,7 @@ export function validateEdits(edits) {
 // exact code instead of a second copy. Order matters for the recorded evidence: edit, conflicts, json.
 export function contentChecks(path, content) {
   const checks = [{ name: `edit:${path}`, status: 'passed', detail: `sha256:${createHash('sha256').update(content).digest('hex')}` }];
-  if (/^(<{7}|={7}|>{7})(?: |$)/m.test(content)) checks.push({ name: `conflicts:${path}`, status: 'failed', detail: 'Unresolved conflict marker' });
+  if (/^(<{7,}|={7,}|>{7,}|\|{7,})(?: |$)/m.test(content)) checks.push({ name: `conflicts:${path}`, status: 'failed', detail: 'Unresolved conflict marker' });
   else checks.push({ name: `conflicts:${path}`, status: 'passed', detail: 'No conflict markers' });
   if (path.endsWith('.json')) {
     try { JSON.parse(content); checks.push({ name: `json:${path}`, status: 'passed', detail: 'Valid JSON' }); }
