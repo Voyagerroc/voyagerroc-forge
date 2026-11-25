@@ -34,6 +34,8 @@ Supply the App ID, installation ID and private key path. The adapter signs an RS
 
 Endpoint: `POST /api/webhooks/github`. Subscribe to Push and Pull request events and configure the same secret on both sides. Forge verifies HMAC-SHA256 over the original body and deduplicates delivery IDs.
 
+Pull request snapshots older than the stored update time are ignored. Once a pull request is merged, an unmerged snapshot cannot reopen it, including when deliveries share the same timestamp. Later merged snapshots can still update its metadata.
+
 The server intentionally validates loopback Host. Public webhook ingress, trusted proxy handling and hosted identity are not configured. Do not open a public tunnel and assume this is a hosted-ready service. PR events before registration are not backfilled. Push SHA is the latest received default-branch event; execution resolves its own fresh authoritative revision.
 
 ## Runtime limits
