@@ -128,6 +128,20 @@ function tallyChecks(run) {
   return parts.join(', ');
 }
 function latestStatus(task) { const runs = runsOf(task); return runs.length ? runs.at(-1).status : task.status; }
+function patchPath(value) {
+  if (value.startsWith('"')) {
+    try {
+      // Git quotes non-ASCII path bytes as octal UTF-8 escapes.
+      value = JSON.parse(value.replace(/(?:\\[0-3][0-7]{2})+|\\./g, escaped => {
+        // Consume escaped backslashes before looking for octal byte runs.
+        if (escaped.length === 2) return ({ '\\a': '\\u0007', '\\v': '\\u000b' })[escaped] ?? escaped;
+        const bytes = Uint8Array.from(escaped.match(/\\([0-7]{3})/g), octal => parseInt(octal.slice(1), 8));
+        return JSON.stringify(new TextDecoder('utf-8', { fatal: true }).decode(bytes)).slice(1, -1);
+      }));
+    } catch { /* Keep an unrecognised header readable instead of losing the diff. */ }
+  }
+  return value.replace(/^b\//, '');
+}
 function patchFiles(text) {
   const files = []; let file = null, inHunk = false, oldLine = 0, newLine = 0;
   const start = path => { file = { path, rows: [], added: 0, removed: 0 }; files.push(file); inHunk = false; };
@@ -143,7 +157,7 @@ function patchFiles(text) {
     const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
     if (hunk) { oldLine = Number(hunk[1]); newLine = Number(hunk[2]); inHunk = true; file.rows.push({ type: 'meta', text: line }); continue; }
     if (!inHunk) {
-      if (line.startsWith('+++ ') && !line.startsWith('+++ /dev/null')) file.path = line.slice(4).replace(/^b\//, '').replace(/	.*$/, '');
+      if (line.startsWith('+++ ') && !line.startsWith('+++ /dev/null')) file.path = patchPath(line.slice(4).replace(/\t.*$/, ''));
       file.rows.push({ type: 'meta', text: line });
       continue;
     }
