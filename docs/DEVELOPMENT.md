@@ -53,7 +53,7 @@ On the same approved task, choose **Run scoped edits** again and submit the corr
 [{"path":"hello.mjs","before":"\"helo\"","after":"\"hello\""}]
 ```
 
-This creates a **separate run**. The record now lists **Runs on this task: 2**. Run 2 shows **Passed** results for `edit:hello.mjs`, `conflicts:hello.mjs`, `syntax:hello.mjs` and `diff-whitespace`, a **Project tests** row marked **Not run**, a patch SHA-256, and a diff changing `"helo"` to `"hello"`. The summary is `Scoped edits and static checks passed. Project tests were not run.` Choose Run 1 in the runs list: its failure message and lack of patch remain unchanged. A follow-up does not overwrite historical evidence.
+This creates a **separate run**. The record now lists **Runs on this task: 2**. Run 2 shows **Passed** results for `edit:hello.mjs`, `conflicts:hello.mjs`, `syntax:hello.mjs` and `diff-whitespace`, a **Project tests** row marked **Not run**, a patch SHA-256, and a diff changing `"helo"` to `"hello"`. The summary is `Scoped edits and static checks passed. Project tests were not run.` Choose Run 1 in the runs list: its failure message and lack of patch remain unchanged. A follow-up does not overwrite historical evidence. The state response includes every task's run metadata, even after more than 50 newer runs; patch text is fetched separately when its record is opened. The separate recent-activity window still contains only the latest 50 events.
 
 Repeat the three Git commands above. HEAD must match the original value, and status/diff must still be empty. The original `data/demo-repository/hello.mjs` still contains `export const greeting = "helo";`; only the disposable copy was edited.
 
