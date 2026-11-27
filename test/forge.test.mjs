@@ -368,3 +368,21 @@ test('expected client errors are not written to the error log', async t => {
   assert.equal((await call('/api/tasks', { adapter: 'nope' })).status, 400);
   assert.deepEqual(logged, []);
 });
+
+for (const type of ['Application/JSON', 'APPLICATION/JSON; charset=utf-8', 'application/json ; charset=utf-8']) {
+  test(`JSON media type accepts ${type}`, async t => {
+    const { call } = await fixture(t);
+    const result = await call('/api/projects', { repository: 'example/project' }, { 'Content-Type': type });
+    assert.equal(result.status, 201);
+    assert.equal(result.data.full_name, 'example/project');
+  });
+}
+for (const type of ['application/jsonp', 'application/json-patch+json', 'application/json-extra']) {
+  test(`JSON media type rejects ${type}`, async t => {
+    const { call, store } = await fixture(t);
+    const result = await call('/api/projects', { repository: 'example/project' }, { 'Content-Type': type });
+    assert.equal(result.status, 415);
+    assert.deepEqual(result.data, { error: 'JSON content type required' });
+    assert.equal(store.snapshot().projects.length, 0);
+  });
+}

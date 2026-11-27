@@ -121,7 +121,7 @@ function openLockedStore(filename, release, readOnly) {
         projects: db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all(),
         tasks: db.prepare('SELECT id FROM tasks ORDER BY created_at DESC').all().map(r => ({ ...getTask(r.id), events: taskEvents(r.id) })),
         pullRequests: db.prepare('SELECT * FROM pull_requests ORDER BY updated_at DESC').all(),
-        runs: db.prepare('SELECT id FROM runs ORDER BY created_at DESC LIMIT 50').all().map(r => {
+        runs: db.prepare('SELECT id FROM runs ORDER BY created_at DESC').all().map(r => {
           const { patch, ...metadata } = getRun(r.id); return { ...metadata, has_patch: Boolean(patch) };
         }),
         events: db.prepare('SELECT * FROM events ORDER BY id DESC LIMIT 50').all().map(r => ({ ...r, detail: JSON.parse(r.detail) }))

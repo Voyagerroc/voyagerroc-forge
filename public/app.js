@@ -6,6 +6,7 @@ let reportedStateErrorRequestId = 0;
 let runTask;
 let selectedProjectId = 'all';
 let selectedTaskId = null;
+let navigationVersion = 0;
 let earlierOpen = false;
 let numbers = new Map();
 const focusReturns = new WeakMap();
@@ -253,7 +254,16 @@ function patchSection(rn, detail) {
   const content = [definitions(pair('Patch SHA-256', hashBlock(rn.patch_sha256, 'Copy patch SHA-256', `copy-patch-${rn.id}`)))];
   if (!rn.has_patch) content.push(node('p', 'No patch produced.', 'plain-line'));
   else if (!detail) content.push(node('p', 'Loading the patch…', 'plain-line'));
-  else if (detail.error) content.push(node('p', `The patch could not be loaded: ${detail.error}`, 'plain-line'));
+  else if (detail.error) {
+    content.push(node('p', `The patch could not be loaded: ${detail.error}`, 'plain-line'));
+    const retry = node('button', 'Retry loading patch', 'btn'); retry.type = 'button'; retry.id = `retry-patch-${rn.id}`;
+    retry.onclick = () => {
+      if (loadingRuns.has(rn.id)) return;
+      runDetails.delete(rn.id);
+      render();
+    };
+    const actions = node('div', undefined, 'actions'); actions.append(retry); content.push(actions);
+  }
   else {
     content.push(...patchFiles(detail.patch ?? '').map((file, index) => diffFile(file, `diff-${rn.id}-${index}`)));
     if (detail.patch) {
@@ -263,7 +273,9 @@ function patchSection(rn, detail) {
       content.push(bar);
     } else content.push(node('p', 'No patch produced.', 'plain-line'));
   }
-  return lettered(`sec-patch-${rn.id}`, 'B', 'Patch', 'Exactly what changed', null, ...content);
+  const section = lettered(`sec-patch-${rn.id}`, 'B', 'Patch', 'Exactly what changed', null, ...content);
+  section.tabIndex = -1;
+  return section;
 }
 function checkItem(check) {
   const item = node('li', undefined, check.status === 'passed' ? '' : 'check-failed'), text = node('div');
@@ -525,7 +537,7 @@ function renderRail() {
     if (task.id === selectedTaskId) attr(button, 'aria-current', 'true');
     const latest = runsOf(task).at(-1);
     button.append(mark(latest ? latest.status : task.status), node('strong', task.title), node('small', latest ? `Latest run ${WORDS[latest.status]?.[1].toLowerCase() ?? latest.status}, ${clock(latest.finished_at || latest.created_at)}` : { queued: 'Not planned yet', planned: 'Plan generated', in_review: 'Plan in review', approved: 'Plan approved, no run yet' }[task.status] ?? task.status));
-    button.onclick = () => { selectedTaskId = task.id; earlierOpen = false; render(); };
+    button.onclick = () => { navigationVersion++; selectedTaskId = task.id; earlierOpen = false; render(); };
     return button;
   }));
   const planned = state.adapters.filter(adapter => adapter.status === 'planned');
@@ -556,7 +568,7 @@ function captureView() {
   const active = document.activeElement, win = globalThis.window;
   return { active, id: active?.id || '', scrolls: new Map(liveRegions.map(el => [el.id, [el.scrollLeft || 0, el.scrollTop || 0]])), x: win?.scrollX || 0, y: win?.scrollY || 0 };
 }
-const FOCUS_FALLBACKS = [[/^task-(.+)-step$/, m => [`task-${m[1]}-run`, `task-${m[1]}-plan`]], [/^cancel-/, () => []]];
+const FOCUS_FALLBACKS = [[/^task-(.+)-step$/, m => [`task-${m[1]}-run`, `task-${m[1]}-plan`]], [/^retry-patch-(.+)$/, m => [`sec-patch-${m[1]}`]], [/^cancel-/, () => []]];
 function restoreView(view) {
   for (const region of liveRegions) {
     const saved = view.scrolls.get(region.id);
@@ -659,15 +671,17 @@ function downloadPatch(result) {
 }
 // Loads one run's full evidence (the patch is not part of /api/state) into the record, opens it and moves focus to its patch.
 async function showResult(id, trigger) {
+  const version = ++navigationVersion;
   try {
     const result = await api(`/api/runs/${id}`);
+    if (version !== navigationVersion) return;
     runDetails.set(id, result);
     if (result.task_id) selectedTaskId = result.task_id;
     openRuns.add(id);
     if (state) render();
     const target = typeof document.getElementById === 'function' ? document.getElementById(`sec-patch-${id}`) ?? document.getElementById(`run-summary-${id}`) ?? document.getElementById(`run-${id}`) : null;
     if (target) { if (target.tagName.toLowerCase() !== 'summary') target.tabIndex = -1; target.scrollIntoView({ block: 'start' }); target.focus(); }
-  } catch (error) { message(error.message); }
+  } catch (error) { if (version === navigationVersion) message(error.message); }
 }
 function showPlan(task, trigger) {
   const detail = $('#plan-detail'); const list = node('ol', undefined, 'plan-list');
@@ -762,6 +776,7 @@ $('#connect-form').onsubmit = event => {
 const filterElem = $('#filter-project');
 if (filterElem) {
   filterElem.onchange = () => {
+    navigationVersion++;
     selectedProjectId = filterElem.value;
     render();
   };
@@ -800,6 +815,7 @@ $('#task-form').onsubmit = event => {
   run(event.submitter, async () => {
     const created = await api('/api/tasks', Object.fromEntries(new FormData(event.target)));
     // Show the new task's record, even when the repository filter would hide it.
+    navigationVersion++;
     selectedTaskId = created.id;
     if (selectedProjectId !== 'all' && selectedProjectId !== created.project_id) { selectedProjectId = 'all'; $('#filter-project').value = 'all'; }
     closeDialog($('#task-dialog')); event.target.reset(); await refresh(); message('Workflow task created.');
