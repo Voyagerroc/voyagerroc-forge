@@ -236,7 +236,16 @@ function patchSection(rn, detail) {
   const content = [definitions(pair('Patch SHA-256', hashBlock(rn.patch_sha256, 'Copy patch SHA-256', `copy-patch-${rn.id}`)))];
   if (!rn.has_patch) content.push(node('p', 'No patch produced.', 'plain-line'));
   else if (!detail) content.push(node('p', 'Loading the patch…', 'plain-line'));
-  else if (detail.error) content.push(node('p', `The patch could not be loaded: ${detail.error}`, 'plain-line'));
+  else if (detail.error) {
+    content.push(node('p', `The patch could not be loaded: ${detail.error}`, 'plain-line'));
+    const retry = node('button', 'Retry loading patch', 'btn'); retry.type = 'button'; retry.id = `retry-patch-${rn.id}`;
+    retry.onclick = () => {
+      if (loadingRuns.has(rn.id)) return;
+      runDetails.delete(rn.id);
+      render();
+    };
+    const actions = node('div', undefined, 'actions'); actions.append(retry); content.push(actions);
+  }
   else {
     content.push(...patchFiles(detail.patch ?? '').map((file, index) => diffFile(file, `diff-${rn.id}-${index}`)));
     if (detail.patch) {
@@ -246,7 +255,9 @@ function patchSection(rn, detail) {
       content.push(bar);
     } else content.push(node('p', 'No patch produced.', 'plain-line'));
   }
-  return lettered(`sec-patch-${rn.id}`, 'B', 'Patch', 'Exactly what changed', null, ...content);
+  const section = lettered(`sec-patch-${rn.id}`, 'B', 'Patch', 'Exactly what changed', null, ...content);
+  section.tabIndex = -1;
+  return section;
 }
 function checkItem(check) {
   const item = node('li', undefined, check.status === 'passed' ? '' : 'check-failed'), text = node('div');
@@ -539,7 +550,7 @@ function captureView() {
   const active = document.activeElement, win = globalThis.window;
   return { active, id: active?.id || '', scrolls: new Map(liveRegions.map(el => [el.id, [el.scrollLeft || 0, el.scrollTop || 0]])), x: win?.scrollX || 0, y: win?.scrollY || 0 };
 }
-const FOCUS_FALLBACKS = [[/^task-(.+)-step$/, m => [`task-${m[1]}-run`, `task-${m[1]}-plan`]], [/^cancel-/, () => []]];
+const FOCUS_FALLBACKS = [[/^task-(.+)-step$/, m => [`task-${m[1]}-run`, `task-${m[1]}-plan`]], [/^retry-patch-(.+)$/, m => [`sec-patch-${m[1]}`]], [/^cancel-/, () => []]];
 function restoreView(view) {
   for (const region of liveRegions) {
     const saved = view.scrolls.get(region.id);
