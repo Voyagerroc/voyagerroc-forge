@@ -14,6 +14,8 @@ Forge is a local application with framework building blocks. It does not yet exp
 | `evidence.mjs` | Portable evidence bundle for a finished run and its independent verifier ([EVIDENCE.md](EVIDENCE.md)) |
 | `public/` | Dependency-free local web UI |
 
+Local UI mutations require the `application/json` media type. Its name is case-insensitive and may include parameters such as `charset=utf-8`; another media type that only begins with `application/json` is rejected with HTTP 415.
+
 ## Separate the meanings of approval
 
 Task states: queued → planned → in review → approved. This approves a specification. Run states are independent: preparing → running → terminal result. Neither plan approval nor a passed static run authorizes upstream publication.
