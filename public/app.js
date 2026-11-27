@@ -1,5 +1,8 @@
 let state;
 let stateJson = '';
+let stateRequestId = 0;
+let appliedStateRequestId = 0;
+let reportedStateErrorRequestId = 0;
 let runTask;
 let selectedProjectId = 'all';
 let selectedTaskId = null;
@@ -50,7 +53,22 @@ function applyState(next) {
   state = next; stateJson = json; render();
   return true;
 }
-async function refresh() { applyState(await api('/api/state')); }
+async function refresh() {
+  const requestId = ++stateRequestId;
+  let next;
+  try { next = await api('/api/state'); }
+  catch (error) {
+    if (requestId <= appliedStateRequestId || requestId <= reportedStateErrorRequestId) return;
+    reportedStateErrorRequestId = requestId;
+    throw error;
+  }
+  // A slow response must not undo a newer successful refresh. A failed request
+  // does not advance this boundary, so an older success can still supply state.
+  if (requestId > appliedStateRequestId) {
+    appliedStateRequestId = requestId;
+    applyState(next);
+  }
+}
 
 // ---------- formatting ----------
 const pad = value => String(value).padStart(2, '0');
@@ -807,6 +825,6 @@ refresh().catch(error => message(error.message));
 setInterval(async () => {
   if (!state?.runs?.some(isActive) || document.querySelector('dialog[open]')) return;
   try {
-    applyState(await api('/api/state'));
+    await refresh();
   } catch (error) { message(error.message); }
 }, 1500);
