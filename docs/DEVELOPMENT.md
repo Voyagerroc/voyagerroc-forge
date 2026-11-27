@@ -53,7 +53,7 @@ On the same approved task, choose **Run scoped edits** again and submit the corr
 [{"path":"hello.mjs","before":"\"helo\"","after":"\"hello\""}]
 ```
 
-This creates a **separate run**. The record now lists **Runs on this task: 2**. Run 2 shows **Passed** results for `edit:hello.mjs`, `conflicts:hello.mjs`, `syntax:hello.mjs` and `diff-whitespace`, a **Project tests** row marked **Not run**, a patch SHA-256, and a diff changing `"helo"` to `"hello"`. The summary is `Scoped edits and static checks passed. Project tests were not run.` Choose Run 1 in the runs list: its failure message and lack of patch remain unchanged. A follow-up does not overwrite historical evidence.
+This creates a **separate run**. The record now lists **Runs on this task: 2**. Run 2 shows **Passed** results for `edit:hello.mjs`, `conflicts:hello.mjs`, `syntax:hello.mjs` and `diff-whitespace`, a **Project tests** row marked **Not run**, a patch SHA-256, and a diff changing `"helo"` to `"hello"`. The summary is `Scoped edits and static checks passed. Project tests were not run.` Choose Run 1 in the runs list: its failure message and lack of patch remain unchanged. A follow-up does not overwrite historical evidence. The state response includes every task's run metadata, even after more than 50 newer runs; patch text is fetched separately when its record is opened. The separate recent-activity window still contains only the latest 50 events.
 
 Repeat the three Git commands above. HEAD must match the original value, and status/diff must still be empty. The original `data/demo-repository/hello.mjs` still contains `export const greeting = "helo";`; only the disposable copy was edited.
 
@@ -62,6 +62,8 @@ The runner's syntax/JSON/conflict/whitespace checks are static validation, not e
 ## Optional browser acceptance
 
 The repository filter scopes both workflow-board columns and runner history. **All repositories** restores both, including runs whose task is no longer available. Refresh retains a valid selection; a repository removed from the returned state falls back to **All repositories**. The new-task form keeps its own repository selection. For a focused check, use synthetic state with two repositories and runs for each, change the filter by keyboard, refresh, and verify both sections plus the empty-repository case at desktop and 390px widths. The built-in tests cover these cases with a stubbed DOM.
+
+Choosing a run loads its evidence and moves focus only while that navigation remains current. Selecting another task or repository filter, opening another run, or creating a task supersedes the pending run request, even if you return to the original task before it finishes. Late responses and errors leave the newer selection and focus in place. A passive state refresh still allows the current run request to finish. To check this in a browser, delay a run-detail response, choose another task by keyboard, then release the response and confirm that task and its focus remain at desktop and 390px widths.
 
 Install Playwright temporarily without changing the manifest/lockfile:
 
