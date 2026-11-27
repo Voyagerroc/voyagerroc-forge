@@ -247,6 +247,28 @@ test('invalid edits are explained with line, column and a caret', () => {
   assert.equal(diagnose('[{"path":"a","before":null,"after":"y"}]'), null);
 });
 
+test('patch headings decode Git-quoted UTF-8 file names', () => {
+  const { context } = loadApp({ extra: { TextDecoder } });
+  for (const [header, expected] of [
+    [String.raw`"b/caf\303\251/\350\257\264\346\230\216.txt"`, 'café/说明.txt'],
+    [String.raw`"b/\360\237\214\215.txt"`, '🌍.txt'],
+    [String.raw`"b/literal\\156-\303\251.txt"`, 'literal\\156-é.txt'],
+    [String.raw`"b/quote\"-\303\251.txt"`, 'quote"-é.txt'],
+    [String.raw`"b/tab\t-\303\251.txt"`, 'tab\t-é.txt'],
+    [String.raw`"b/bell\a-vertical\v-\303\251.txt"`, 'bell\x07-vertical\x0b-é.txt'],
+    ['b/space name.txt\t', 'space name.txt'],
+    ['b/说明.txt', '说明.txt'],
+  ]) {
+    context.patch = `diff --git a/file b/file\n--- a/file\n+++ ${header}\n@@ -1 +1 @@\n-old\n+new\n`;
+    const files = vm.runInContext('patchFiles(patch)', context);
+    assert.equal(files[0].path, expected);
+    assert.deepEqual([files[0].added, files[0].removed], [1, 1]);
+    context.file = files[0];
+    const diff = vm.runInContext('diffFile(file, "unicode-diff")', context);
+    assert.match(textOf(diff), new RegExp(expected.replace(/\s+/g, ' ').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+});
+
 test('the interface stays inside the page contract', () => {
   const read = name => readFileSync(new URL(`../public/${name}`, import.meta.url), 'utf8');
   const html = read('index.html'), js = read('app.js'), css = (read('style.css') + read('runner.css')).replace(/\/\*[\s\S]*?\*\//g, '');
