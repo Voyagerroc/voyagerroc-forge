@@ -33,6 +33,8 @@ flowchart TD
 
 Data model: Project (GitHub numeric identity, canonical name, branch, latest observed SHA), Task (intent, adapter, status, optimistic version, plan), Event (kind, detail, timestamp), Delivery (idempotency ID), PullRequest (number, state, title, head SHA, updated timestamp). SQLite transactions atomically persist state + audit event and webhook state + delivery receipt.
 
+After a GitHub repository is renamed or transferred, connect its new `owner/name`. Forge matches its unchanged numeric GitHub identity, updates the name and metadata, and keeps the existing project, tasks and history.
+
 ## State semantics
 
 | State | Meaning | Allowed next operation |
