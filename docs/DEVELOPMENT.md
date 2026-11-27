@@ -63,6 +63,8 @@ The runner's syntax/JSON/conflict/whitespace checks are static validation, not e
 
 The repository filter scopes both workflow-board columns and runner history. **All repositories** restores both, including runs whose task is no longer available. Refresh retains a valid selection; a repository removed from the returned state falls back to **All repositories**. The new-task form keeps its own repository selection. For a focused check, use synthetic state with two repositories and runs for each, change the filter by keyboard, refresh, and verify both sections plus the empty-repository case at desktop and 390px widths. The built-in tests cover these cases with a stubbed DOM.
 
+Choosing a run loads its evidence and moves focus only while that navigation remains current. Selecting another task or repository filter, opening another run, or creating a task supersedes the pending run request, even if you return to the original task before it finishes. Late responses and errors leave the newer selection and focus in place. A passive state refresh still allows the current run request to finish. To check this in a browser, delay a run-detail response, choose another task by keyboard, then release the response and confirm that task and its focus remain at desktop and 390px widths.
+
 Install Playwright temporarily without changing the manifest/lockfile:
 
 ```sh
