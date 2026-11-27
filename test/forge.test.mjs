@@ -212,6 +212,31 @@ test('PR synchronization uses trusted URLs and ignores older snapshots', async t
   const synced = (await call('/api/state')).data.pullRequests[0];
   assert.equal(synced.state, 'merged'); assert.equal(synced.url, 'https://github.com/example/project/pull/1');
 });
+test('PR synchronization keeps merged state when an unmerged snapshot has the same timestamp', async t => {
+  const { call, webhook } = await fixture(t); await call('/api/projects', { repository: 'example/project' });
+  const pr = { number: 1, title: 'Before merge', state: 'open', merged: false, head: { sha: 'c'.repeat(40) }, updated_at: '2026-10-28T10:00:00Z' };
+  const send = (id, action, pull_request) => webhook(id, 'pull_request', { repository: { id: 123 }, pull_request, action });
+  await send('opened', 'opened', pr);
+  const merged = { ...pr, state: 'closed', merged: true, title: 'Merged change' };
+  await send('merged', 'closed', merged);
+  assert.equal((await call('/api/state')).data.pullRequests[0].state, 'merged', 'a merge wins over an open snapshot in the same second');
+
+  await send('delayed-open', 'synchronize', pr);
+  const synced = (await call('/api/state')).data.pullRequests[0];
+  assert.equal(synced.state, 'merged');
+  assert.equal(synced.title, merged.title);
+
+  await send('edited-merged', 'edited', { ...merged, title: 'Updated title', updated_at: '2026-10-28T10:00:01Z' });
+  const edited = (await call('/api/state')).data.pullRequests[0];
+  assert.equal(edited.state, 'merged'); assert.equal(edited.title, 'Updated title');
+});
+test('unmerged PRs can reopen within the same timestamp', async t => {
+  const { call, webhook } = await fixture(t); await call('/api/projects', { repository: 'example/project' });
+  const pr = { number: 1, title: 'Reopen me', state: 'closed', merged: false, head: { sha: 'c'.repeat(40) }, updated_at: '2026-10-28T10:00:00Z' };
+  await webhook('closed', 'pull_request', { repository: { id: 123 }, pull_request: pr, action: 'closed' });
+  await webhook('reopened', 'pull_request', { repository: { id: 123 }, pull_request: { ...pr, state: 'open' }, action: 'reopened' });
+  assert.equal((await call('/api/state')).data.pullRequests[0].state, 'open');
+});
 test('unconnected repositories and non-default pushes do not affect project state', async t => {
   const { call, webhook } = await fixture(t); await call('/api/projects', { repository: 'example/project' });
   assert.equal((await webhook('other', 'push', { repository: { id: 999 } })).data.ignored, true);

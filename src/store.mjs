@@ -121,7 +121,7 @@ function openLockedStore(filename, release, readOnly) {
         projects: db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all(),
         tasks: db.prepare('SELECT id FROM tasks ORDER BY created_at DESC').all().map(r => ({ ...getTask(r.id), events: taskEvents(r.id) })),
         pullRequests: db.prepare('SELECT * FROM pull_requests ORDER BY updated_at DESC').all(),
-        runs: db.prepare('SELECT id FROM runs ORDER BY created_at DESC LIMIT 50').all().map(r => {
+        runs: db.prepare('SELECT id FROM runs ORDER BY created_at DESC').all().map(r => {
           const { patch, ...metadata } = getRun(r.id); return { ...metadata, has_patch: Boolean(patch) };
         }),
         events: db.prepare('SELECT * FROM events ORDER BY id DESC LIMIT 50').all().map(r => ({ ...r, detail: JSON.parse(r.detail) }))
@@ -226,7 +226,8 @@ function openLockedStore(filename, release, readOnly) {
           db.prepare(`INSERT INTO pull_requests VALUES (?,?,?,?,?,?,?)
             ON CONFLICT(project_id,number) DO UPDATE SET title=excluded.title,state=excluded.state,
             url=excluded.url,head_sha=excluded.head_sha,updated_at=excluded.updated_at
-            WHERE excluded.updated_at >= pull_requests.updated_at`).run(
+            WHERE excluded.updated_at >= pull_requests.updated_at
+              AND (pull_requests.state <> 'merged' OR excluded.state = 'merged')`).run(
             project.id, pr.number, pr.title.slice(0,500), pr.merged ? 'merged' : pr.state, url, pr.head.sha, new Date(updated).toISOString());
           event(project.id, 'github.pull_request', { number: pr.number, action: payload.action });
         } else return { ignored: true, reason: 'Event does not update tracked state' };
