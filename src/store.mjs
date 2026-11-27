@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
@@ -41,6 +41,11 @@ function lockDatabase(filename) {
 // readOnly opens an existing database without the server lock and without creating tables or migrating the schema,
 // so evidence can be exported while a server is running on the same file. It cannot write to the database, but SQLite may leave -shm and -wal side files next to it.
 export function openStore(filename, { readOnly = false } = {}) {
+  if (filename !== ':memory:') {
+    // An existing file alias must share both the server lock and SQLite's WAL.
+    try { filename = realpathSync(filename); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
   if (readOnly) return openLockedStore(filename, () => {}, true);
   let release = () => {};
   if (filename !== ':memory:') { mkdirSync(dirname(filename), { recursive: true }); release = lockDatabase(filename); }
