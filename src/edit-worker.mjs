@@ -1,6 +1,6 @@
 // Trusted, fixed worker: repository files are data, never imported or evaluated.
 import { readFileSync, writeFileSync, mkdirSync, existsSync, lstatSync } from 'node:fs';
-import { resolve, dirname, relative, isAbsolute } from 'node:path';
+import { resolve, dirname, relative, isAbsolute, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { isUtf8 } from 'node:buffer';
@@ -68,7 +68,7 @@ export function applyEdits(root, edits) {
   const prepared = validateEdits(edits).map(edit => {
     const target = resolve(root, edit.path);
     const rel = relative(root, target);
-    if (rel.startsWith('..') || isAbsolute(rel)) throw new Error('File escaped workspace');
+    if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error('File escaped workspace');
     let parent = target;
     while (parent !== root) {
       if (existsSync(parent) && lstatSync(parent).isSymbolicLink()) throw new Error('Symbolic links are not supported');
